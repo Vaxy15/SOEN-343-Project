@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TripPlan {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  origin      String
+  destination String
+  mode        String
+  resultJson  String
+}
+
+model MockOrder {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  type        String
+  priceCents  Int
+  status      String
+  detailsJson String
+}
+
+model BixiSnapshot {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  stationId      String
+  bikesAvailable Int
+  docksAvailable Int
+}
