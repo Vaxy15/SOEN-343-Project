@@ -28,25 +28,38 @@ export default function PlannerPage() {
     setLoading(true);
     setData(null);
 
-    const res = await fetch("/api/trips/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ origin, destination, mode: "transit+bixi" }),
-    });
+    try {
+      const res = await fetch(`/api/trips/plan?t=${Date.now()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ origin, destination, mode: "transit" }),
+      });
 
-    const json = (await res.json()) as PlanResponse;
-    setData(json);
-    setLoading(false);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Plan API failed (${res.status}): ${text}`);
+      }
+
+      const json = (await res.json()) as PlanResponse;
+
+      // ✅ Proof in console: if this shows "transit", you're hitting the new route
+      console.log("PLAN RESPONSE:", json);
+
+      setData(json);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message ?? "Failed to plan trip");
+    } finally {
+      setLoading(false);
+    }
   }
-
-  const pickup = data?.plan?.bixi?.suggestedPickup;
-  const dropoff = data?.plan?.bixi?.suggestedDropoff;
 
   return (
     <main className="min-h-screen bg-zinc-50 p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Planner</h1>
+          <h1 className="text-2xl font-semibold">Trip Planner (Transit)</h1>
           <a className="underline text-sm text-zinc-600" href="/">
             Home
           </a>
@@ -104,31 +117,23 @@ export default function PlannerPage() {
             ready={googleReady}
             origin={origin ? { lat: origin.lat, lon: origin.lon } : null}
             destination={destination ? { lat: destination.lat, lon: destination.lon } : null}
-            bixiPickup={
-                data?.plan?.bixi?.suggestedPickup
-                ? { lat: data.plan.bixi.suggestedPickup.lat, lon: data.plan.bixi.suggestedPickup.lon }
-                : null
-            }
-            bixiDropoff={
-                data?.plan?.bixi?.suggestedDropoff
-                ? { lat: data.plan.bixi.suggestedDropoff.lat, lon: data.plan.bixi.suggestedDropoff.lon }
-                : null
-            }
-            />
-
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="rounded border p-3">
               <div className="font-medium">Origin chosen</div>
               <div className="text-zinc-600">
-                {origin?.label ?? (origin ? `${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)}` : "Not set")}
+                {origin?.label ??
+                  (origin ? `${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)}` : "Not set")}
               </div>
             </div>
             <div className="rounded border p-3">
               <div className="font-medium">Destination chosen</div>
               <div className="text-zinc-600">
                 {destination?.label ??
-                  (destination ? `${destination.lat.toFixed(5)}, ${destination.lon.toFixed(5)}` : "Not set")}
+                  (destination
+                    ? `${destination.lat.toFixed(5)}, ${destination.lon.toFixed(5)}`
+                    : "Not set")}
               </div>
             </div>
           </div>
@@ -145,36 +150,6 @@ export default function PlannerPage() {
         {data && (
           <div className="rounded-lg border bg-white p-4 space-y-3">
             <div className="text-sm text-zinc-500">Trip ID: {data.tripId}</div>
-
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="rounded border p-3">
-                <div className="font-medium">Suggested Pickup (BIXI)</div>
-                {pickup ? (
-                  <div className="mt-2 text-sm">
-                    <div>{pickup.name}</div>
-                    <div className="text-zinc-600">
-                      Bikes: {pickup.bikes_available} · Docks: {pickup.docks_available}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-2 text-sm text-zinc-600">None found</div>
-                )}
-              </div>
-
-              <div className="rounded border p-3">
-                <div className="font-medium">Suggested Dropoff (BIXI)</div>
-                {dropoff ? (
-                  <div className="mt-2 text-sm">
-                    <div>{dropoff.name}</div>
-                    <div className="text-zinc-600">
-                      Bikes: {dropoff.bikes_available} · Docks: {dropoff.docks_available}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-2 text-sm text-zinc-600">None found</div>
-                )}
-              </div>
-            </div>
 
             <details className="mt-2">
               <summary className="cursor-pointer text-sm text-zinc-600">Show full JSON</summary>

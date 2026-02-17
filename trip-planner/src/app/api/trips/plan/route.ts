@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getBixiStationsMerged, nearestStations } from "@/lib/providers/gbfs";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const PLAN_VERSION = "transit-only-v3-2026-02-13";
 
 type Body = {
   origin: { lat: number; lon: number; label?: string };
@@ -10,28 +14,24 @@ type Body = {
 
 export async function POST(req: Request) {
   const body = (await req.json()) as Body;
-  const mode = body.mode ?? "transit+bixi";
 
-  const stations = await getBixiStationsMerged();
-
-const originNear = nearestStations(stations, body.origin.lat, body.origin.lon, 3, { requireBikes: true });
-const destNear = nearestStations(stations, body.destination.lat, body.destination.lon, 3, { requireDocks: true });
+  // ✅ Force transit-only regardless of what the client sends
+  const mode = "transit";
 
   const plan = {
+    planVersion: PLAN_VERSION,
     mode,
     origin: body.origin,
     destination: body.destination,
-    bixi: mode.includes("bixi")
-      ? {
-          pickupCandidates: originNear,
-          dropoffCandidates: destNear,
-          suggestedPickup: originNear[0] ?? null,
-          suggestedDropoff: destNear[0] ?? null,
-        }
-      : null,
-    // Phase 2: attach STM real-time info here (arrivals, disruptions, etc.)
+    bixi: null, // ✅ always null now
     stm: null,
   };
+
+  // ✅ server-side proof in your terminal
+  console.log("[/api/trips/plan]", PLAN_VERSION, {
+    origin: plan.origin?.label ?? plan.origin,
+    destination: plan.destination?.label ?? plan.destination,
+  });
 
   const saved = await prisma.tripPlan.create({
     data: {
@@ -42,5 +42,15 @@ const destNear = nearestStations(stations, body.destination.lat, body.destinatio
     },
   });
 
-  return NextResponse.json({ tripId: saved.id, plan });
+  return NextResponse.json(
+    { tripId: saved.id, plan },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+        "X-Plan-Version": PLAN_VERSION,
+      },
+    }
+  );
 }
