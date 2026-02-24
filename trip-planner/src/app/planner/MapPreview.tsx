@@ -1,3 +1,4 @@
+// SOEN-343-Project\trip-planner\src\app\planner\MapPreview.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";

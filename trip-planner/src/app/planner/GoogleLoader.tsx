@@ -1,3 +1,4 @@
+// SOEN-343-Project\trip-planner\src\app\planner\GoogleLoader.tsx
 "use client";
 
 import { useEffect } from "react";

@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const nextUrl = useMemo(() => sp.get("next") ?? "/", [sp]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -11,6 +17,7 @@ export default function LoginPage() {
   async function submit() {
     setMsg(null);
     setLoading(true);
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -18,13 +25,16 @@ export default function LoginPage() {
         cache: "no-store",
         body: JSON.stringify({ email, password }),
       });
-      const json = await res.json();
+
+      const json = await res.json().catch(() => ({}));
+
       if (!res.ok) throw new Error(json?.error ?? "Login failed");
 
-      setMsg(`Logged in as ${json.user.email} (${json.user.role})`);
+      // ✅ Navigate after login so server components (NavBar) re-render with cookies
+      router.replace(nextUrl);
+      router.refresh(); // forces server components to re-read cookies
     } catch (e: any) {
       setMsg(e?.message ?? "Login failed");
-    } finally {
       setLoading(false);
     }
   }
@@ -34,7 +44,6 @@ export default function LoginPage() {
       <div className="max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Log in</h1>
-          <a className="underline text-sm text-zinc-600" href="/">Home</a>
         </div>
 
         <div className="rounded border bg-white p-4 space-y-3">
@@ -45,6 +54,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@email.com"
+              autoComplete="email"
             />
           </div>
 
@@ -56,6 +66,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="your password"
+              autoComplete="current-password"
             />
           </div>
 
@@ -67,11 +78,13 @@ export default function LoginPage() {
             {loading ? "Logging in..." : "Log in"}
           </button>
 
-          {msg && <div className="text-sm text-zinc-700">{msg}</div>}
+          {msg && <div className="text-sm text-red-700">{msg}</div>}
 
           <div className="text-sm text-zinc-600">
             No account?{" "}
-            <a className="underline" href="/auth/register">Create one</a>
+            <a className="underline" href="/auth/register">
+              Create one
+            </a>
           </div>
         </div>
       </div>

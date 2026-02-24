@@ -1,23 +1,19 @@
-// src/lib/auth.ts
+// SOEN-343-Project\trip-planner\src\lib\auth.ts
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
 export type SessionUser = {
   id: string;
   email: string;
+  name: string | null;
   role: "USER" | "ADMIN";
   status: "PENDING" | "APPROVED" | "REJECTED";
 };
 
 /**
- * In this project, the "session" cookie stores the USER ID directly
- * (set in /api/auth/login). So we look up the User by id.
- *
- * Returns null if not logged in / invalid cookie.
+ * session cookie stores USER ID directly
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  // Next 15+ can treat cookies() as async depending on runtime;
-  // this works in your setup (you already changed it to await cookies()).
   const cookieStore = await cookies();
   const userId = cookieStore.get("session")?.value;
 
@@ -32,6 +28,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   return {
     id: user.id,
     email: user.email,
+    name: user.name ?? null,
     role: user.role,
     status: user.status,
   };

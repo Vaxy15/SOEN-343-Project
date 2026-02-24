@@ -1,3 +1,4 @@
+// SOEN-343-Project\trip-planner\src\app\planner\page.tsx
 "use client";
 
 import { useState } from "react";

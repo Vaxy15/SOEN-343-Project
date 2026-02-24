@@ -1,3 +1,4 @@
+-- SOEN-343-Project\trip-planner\prisma\migrations\20260207195127_init\migration.sql
 -- CreateTable
 CREATE TABLE "TripPlan" (
     "id" TEXT NOT NULL PRIMARY KEY,

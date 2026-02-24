@@ -1,3 +1,4 @@
+// SOEN-343-Project\trip-planner\src\app\planner\MapPicker.tsx
 "use client";
 
 import { useEffect, useRef } from "react";

@@ -23,7 +23,7 @@ export default async function NavBar() {
               href="/planner"
               className="text-[var(--brand-blue)] hover:opacity-80 transition"
             >
-              Plan
+              Transit
             </Link>
 
             <Link
@@ -31,6 +31,12 @@ export default async function NavBar() {
               className="text-[var(--brand-green)] hover:opacity-80 transition"
             >
               Reserve
+            </Link>
+            <Link
+                href="/parking"
+                className="text-[var(--brand-dark)] hover:opacity-80 transition"
+              >
+                Parking
             </Link>
 
             {isApprovedAdmin && (

@@ -1,3 +1,4 @@
+// SOEN-343-Project\trip-planner\src\app\api\trips\plan\route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 

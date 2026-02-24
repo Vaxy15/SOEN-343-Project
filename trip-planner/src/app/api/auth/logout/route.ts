@@ -1,15 +1,27 @@
-// SOEN-343-Project\trip-planner\src\app\api\auth\logout\route.ts
 import { NextResponse } from "next/server";
 
-function clear(res: NextResponse) {
-  res.cookies.set("session", "", { path: "/", maxAge: 0 });
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function clearCookie(res: NextResponse) {
+  // Clear session cookie
+  res.cookies.set("session", "", {
+    path: "/",
+    maxAge: 0,
+    sameSite: "lax",
+  });
+
+  // Avoid any caching
+  res.headers.set("Cache-Control", "no-store");
   return res;
 }
 
 export async function POST() {
-  return clear(NextResponse.json({ ok: true }));
+  return clearCookie(NextResponse.json({ ok: true }));
 }
 
 export async function GET(req: Request) {
-  return clear(NextResponse.redirect(new URL("/", req.url)));
+  // Optional: allow GET logout then redirect home
+  const url = new URL("/", req.url);
+  return clearCookie(NextResponse.redirect(url));
 }

@@ -1,8 +1,8 @@
 /* SOEN-343-Project\trip-planner\src\app\globals.css */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+
 
 :root {
   --brand-blue: #1e73be;
@@ -12,6 +12,10 @@
 }
 
 html,
+body {
+  height: 100%
+}
+
 body {
   background: var(--brand-light);
   color: var(--brand-dark);
