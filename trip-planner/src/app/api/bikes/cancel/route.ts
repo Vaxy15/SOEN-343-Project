@@ -1,44 +1,45 @@
-// SOEN-343-Project\trip-planner\src\app\api\bikes\cancel\route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-
-async function ensureStockRow() {
-  const existing = await prisma.bikeStock.findUnique({ where: { id: "default" } });
-  if (existing) return existing;
-
-  return prisma.bikeStock.create({
-    data: { id: "default", available: 20 },
-  });
-}
+import { prisma } from "@/lib/prisma";
 
 export async function POST() {
   try {
     const user = await requireUser();
 
     const result = await prisma.$transaction(async (tx) => {
-      await ensureStockRow();
-
-      const existing = await tx.bikeReservation.findUnique({
+      const reservation = await tx.bikeReservation.findUnique({
         where: { userId: user.id },
+        select: { id: true, stationId: true, stationName: true },
       });
 
-      if (!existing) {
-        return { ok: false as const, status: 404, error: "No reservation found." };
+      if (!reservation) {
+        return { ok: false as const, error: "No bike reservation found." };
       }
 
-      await tx.bikeReservation.delete({ where: { userId: user.id } });
+      const customStationVehicle = await tx.vehicle.findFirst({
+        where: {
+          type: "BIKE",
+          stationId: reservation.stationId,
+        },
+        orderBy: { createdAt: "asc" },
+      });
 
-      await tx.bikeStock.update({
-        where: { id: "default" },
-        data: { available: { increment: 1 } },
+      if (customStationVehicle) {
+        await tx.vehicle.update({
+          where: { id: customStationVehicle.id },
+          data: { available: { increment: 1 } },
+        });
+      }
+
+      await tx.bikeReservation.delete({
+        where: { userId: user.id },
       });
 
       return { ok: true as const };
     });
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
+      return NextResponse.json({ error: result.error }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true });

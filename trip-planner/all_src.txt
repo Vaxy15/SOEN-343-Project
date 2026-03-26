@@ -1,0 +1,5485 @@
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\admin\approve-admins\page.tsx
+// SOEN-343-Project\trip-planner\src\app\admin\approve-admins\page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function ApproveAdminsPage() {
+  const [pending, setPending] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    const res = await fetch("/api/admin/pending-admins", { cache: "no-store" });
+    const json = await res.json();
+    setPending(json);
+    setLoading(false);
+  }
+
+  async function approve(userId: string) {
+    const res = await fetch("/api/admin/approve-admins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+
+    const json = await res.json();
+    console.log("approve result", json);
+    await load();
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-3xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Approve Admin Accounts</h1>
+          <a className="underline text-sm text-zinc-600" href="/">
+            Home
+          </a>
+        </div>
+
+        {loading ? (
+          <div className="rounded border bg-white p-4">Loading…</div>
+        ) : pending.length === 0 ? (
+          <div className="rounded border bg-white p-4">No pending admins.</div>
+        ) : (
+          <div className="rounded border bg-white p-4 space-y-3">
+            {pending.map((u) => (
+              <div key={u.id} className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium">{u.email}</div>
+                  <div className="text-xs text-zinc-500">
+                    role={u.role} status={u.status}
+                  </div>
+                </div>
+                <button
+                  className="px-3 py-1.5 rounded bg-black text-white"
+                  onClick={() => approve(u.id)}
+                >
+                  Approve
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\admin\users\page.tsx
+// SOEN-343-Project\trip-planner\src\app\admin\users\page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+
+type PendingUser = {
+  id: string;
+  email: string;
+  role: "ADMIN";
+  status: "PENDING";
+  createdAt: string;
+};
+
+export default function AdminUsersPage() {
+  const [pending, setPending] = useState<PendingUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setErr(null);
+
+    try {
+      const res = await fetch(`/api/admin/pending-admins?t=${Date.now()}`, {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load pending admins.");
+
+      setPending(json?.users ?? []);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function approve(userId: string) {
+    setBusyId(userId);
+    setErr(null);
+
+    try {
+      const res = await fetch(`/api/admin/approve-admin?t=${Date.now()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ userId }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to approve admin.");
+
+      // remove from list immediately
+      setPending((prev) => prev.filter((u) => u.id !== userId));
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to approve.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-4xl mx-auto space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold">Admin Approvals</h1>
+            <div className="text-sm text-zinc-600">
+              Approve pending admin accounts.
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <a className="underline text-sm text-zinc-600" href="/admin">
+              Admin
+            </a>
+            <a className="underline text-sm text-zinc-600" href="/">
+              Home
+            </a>
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-white p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-zinc-600">
+              Pending admins: <span className="font-medium text-zinc-900">{pending.length}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={load}
+              className="px-3 py-1.5 rounded border bg-white hover:bg-zinc-100 text-sm text-zinc-900"
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          {err ? (
+            <div className="text-sm text-red-700 border rounded p-3 bg-red-50">
+              {err}
+              <div className="text-xs text-zinc-600 mt-1">
+                If you see <span className="font-mono">UNAUTHORIZED</span> or{" "}
+                <span className="font-mono">FORBIDDEN</span>, you are not logged in as an approved admin.
+              </div>
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="text-sm text-zinc-600">Loading…</div>
+          ) : pending.length === 0 ? (
+            <div className="text-sm text-zinc-600">No pending admins.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-zinc-600">
+                  <tr className="border-b">
+                    <th className="py-2 pr-3">Email</th>
+                    <th className="py-2 pr-3">Requested</th>
+                    <th className="py-2 pr-0 text-right">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {pending.map((u) => (
+                    <tr key={u.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-3">
+                        <div className="font-medium text-zinc-900">{u.email}</div>
+                        <div className="text-xs text-zinc-500">
+                          Role: {u.role} · Status: {u.status}
+                        </div>
+                      </td>
+
+                      <td className="py-2 pr-3 text-zinc-700">
+                        {new Date(u.createdAt).toLocaleString()}
+                      </td>
+
+                      <td className="py-2 pr-0 text-right">
+                        <button
+                          type="button"
+                          onClick={() => approve(u.id)}
+                          disabled={busyId === u.id}
+                          className="px-3 py-1.5 rounded border bg-black text-white disabled:opacity-50"
+                        >
+                          {busyId === u.id ? "Approving..." : "Approve"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-3 text-xs text-zinc-500">
+                Tip: after approving, the user can log in normally.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\admin\vehicles\page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Vehicle = {
+  id: string;
+  name: string;
+  type: string;
+  provider: string | null;
+  stationId: string | null;
+  stationName: string | null;
+  lat: number | null;
+  lon: number | null;
+  available: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type NewVehicle = {
+  name: string;
+  type: string;
+  provider: string;
+  stationId: string;
+  stationName: string;
+  lat: string;
+  lon: string;
+  available: number;
+  status: string;
+};
+
+const emptyForm: NewVehicle = {
+  name: "",
+  type: "BIKE",
+  provider: "",
+  stationId: "",
+  stationName: "",
+  lat: "",
+  lon: "",
+  available: 0,
+  status: "ACTIVE",
+};
+
+export default function AdminVehiclesPage() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [form, setForm] = useState<NewVehicle>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setErr(null);
+
+    try {
+      const res = await fetch(`/api/admin/vehicles?t=${Date.now()}`, {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load vehicles.");
+
+      setVehicles(json?.vehicles ?? []);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load vehicles.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createVehicle(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+
+    try {
+      const res = await fetch("/api/admin/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          lat: form.lat === "" ? null : Number(form.lat),
+          lon: form.lon === "" ? null : Number(form.lon),
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to create vehicle.");
+
+      setForm(emptyForm);
+      await load();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to create vehicle.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateAvailability(id: string, nextAvailable: number) {
+    setBusyId(id);
+    setErr(null);
+
+    try {
+      const res = await fetch(`/api/admin/vehicles/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ available: Math.max(0, nextAvailable) }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to update availability.");
+
+      await load();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to update vehicle.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function updateStatus(id: string, status: string) {
+    setBusyId(id);
+    setErr(null);
+
+    try {
+      const res = await fetch(`/api/admin/vehicles/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to update status.");
+
+      await load();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to update vehicle.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function deleteVehicle(id: string) {
+    setBusyId(id);
+    setErr(null);
+
+    try {
+      const res = await fetch(`/api/admin/vehicles/${id}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to delete vehicle.");
+
+      setVehicles((prev) => prev.filter((v) => v.id !== id));
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to delete vehicle.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Vehicle Management</h1>
+            <div className="text-sm text-zinc-600">
+              Add, update, and remove vehicles and custom bike stations.
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <a className="underline text-sm text-zinc-600" href="/admin">
+              Admin
+            </a>
+            <button
+              onClick={load}
+              className="px-3 py-1.5 rounded border bg-white hover:bg-zinc-100 text-sm"
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        {err ? (
+          <div className="text-sm text-red-700 border rounded p-3 bg-red-50">
+            {err}
+          </div>
+        ) : null}
+
+        <section className="rounded-xl border bg-white p-4">
+          <div className="font-medium mb-3">Add vehicle</div>
+
+          <form onSubmit={createVehicle} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Name"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              required
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Type"
+              value={form.type}
+              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Provider"
+              value={form.provider}
+              onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Station ID"
+              value={form.stationId}
+              onChange={(e) => setForm((f) => ({ ...f, stationId: e.target.value }))}
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Station name"
+              value={form.stationName}
+              onChange={(e) => setForm((f) => ({ ...f, stationName: e.target.value }))}
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Latitude"
+              value={form.lat}
+              onChange={(e) => setForm((f) => ({ ...f, lat: e.target.value }))}
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Longitude"
+              value={form.lon}
+              onChange={(e) => setForm((f) => ({ ...f, lon: e.target.value }))}
+            />
+
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Available"
+              type="number"
+              min={0}
+              value={form.available}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, available: Number(e.target.value) }))
+              }
+            />
+
+            <select
+              className="rounded border px-3 py-2"
+              value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+            >
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="MAINTENANCE">MAINTENANCE</option>
+              <option value="INACTIVE">INACTIVE</option>
+            </select>
+
+            <div className="lg:col-span-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Add vehicle"}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="rounded-xl border bg-white p-4">
+          <div className="font-medium mb-3">Current vehicles</div>
+
+          {loading ? (
+            <div className="text-sm text-zinc-600">Loading vehicles…</div>
+          ) : vehicles.length === 0 ? (
+            <div className="text-sm text-zinc-600">No vehicles yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-zinc-600">
+                  <tr className="border-b">
+                    <th className="py-2 pr-3">Name</th>
+                    <th className="py-2 pr-3">Type</th>
+                    <th className="py-2 pr-3">Station</th>
+                    <th className="py-2 pr-3">Coordinates</th>
+                    <th className="py-2 pr-3">Available</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-0 text-right">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {vehicles.map((v) => (
+                    <tr key={v.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-3">
+                        <div className="font-medium">{v.name}</div>
+                        <div className="text-xs text-zinc-500">{v.provider || "—"}</div>
+                      </td>
+
+                      <td className="py-2 pr-3">{v.type}</td>
+
+                      <td className="py-2 pr-3">
+                        <div>{v.stationName || "—"}</div>
+                        <div className="text-xs text-zinc-500">{v.stationId || ""}</div>
+                      </td>
+
+                      <td className="py-2 pr-3">
+                        {v.lat !== null && v.lon !== null ? `${v.lat}, ${v.lon}` : "—"}
+                      </td>
+
+                      <td className="py-2 pr-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="px-2 py-1 rounded border"
+                            disabled={busyId === v.id}
+                            onClick={() => updateAvailability(v.id, v.available - 1)}
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[2rem] text-center">{v.available}</span>
+                          <button
+                            type="button"
+                            className="px-2 py-1 rounded border"
+                            disabled={busyId === v.id}
+                            onClick={() => updateAvailability(v.id, v.available + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+
+                      <td className="py-2 pr-3">
+                        <select
+                          className="rounded border px-2 py-1"
+                          value={v.status}
+                          disabled={busyId === v.id}
+                          onChange={(e) => updateStatus(v.id, e.target.value)}
+                        >
+                          <option value="ACTIVE">ACTIVE</option>
+                          <option value="MAINTENANCE">MAINTENANCE</option>
+                          <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                      </td>
+
+                      <td className="py-2 pr-0 text-right">
+                        <button
+                          type="button"
+                          onClick={() => deleteVehicle(v.id)}
+                          disabled={busyId === v.id}
+                          className="px-3 py-1.5 rounded border text-red-700 border-red-300 bg-white disabled:opacity-50"
+                        >
+                          {busyId === v.id ? "Working..." : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\admin\AdminClient.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+type Metrics = {
+  window: { days: number; from: string; to: string };
+  totals: { tripPlans: number; bikeReservations: number; parkingReservations: number };
+  active: { bikeReservations: number; parkingReservations: number; bikeStockAvailable: number };
+  timeseries: { day: string; tripPlans: number; bikeReservations: number; parkingReservations: number }[];
+  top: {
+    stations: { stationId: string; stationName: string; count: number }[];
+    parking: { parkingId: string; name: string; address: string; count: number }[];
+  };
+  recent: {
+    tripPlans: { id: string; createdAt: string; origin: string; destination: string; mode: string }[];
+    bikeReservations: { id: string; createdAt: string; stationId: string; stationName: string; userId: string }[];
+    parkingReservations: { id: string; createdAt: string; parkingId: string; name: string; address: string; userId: string }[];
+  };
+  insights: { type: "info" | "warning" | "success"; title: string; detail: string }[];
+};
+
+function fmt(n: number) {
+  return n.toLocaleString();
+}
+
+function badgeClass(t: "info" | "warning" | "success") {
+  if (t === "warning") return "bg-yellow-100 text-yellow-900 border-yellow-200";
+  if (t === "success") return "bg-green-100 text-green-900 border-green-200";
+  return "bg-blue-100 text-blue-900 border-blue-200";
+}
+
+function MiniLineChart(props: {
+  points: number[];
+  width?: number;
+  height?: number;
+}) {
+  const width = props.width ?? 320;
+  const height = props.height ?? 90;
+  const pts = props.points;
+
+  const max = Math.max(1, ...pts);
+  const min = Math.min(0, ...pts);
+  const range = Math.max(1, max - min);
+
+  const d = pts
+    .map((v, i) => {
+      const x = (i / Math.max(1, pts.length - 1)) * (width - 2) + 1;
+      const y = height - 1 - ((v - min) / range) * (height - 2);
+      return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg width={width} height={height} className="w-full">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function BarList(props: { items: { label: string; value: number; sub?: string }[] }) {
+  const max = Math.max(1, ...props.items.map((i) => i.value));
+  return (
+    <div className="space-y-2">
+      {props.items.map((i) => {
+        const pct = Math.round((i.value / max) * 100);
+        return (
+          <div key={i.label} className="space-y-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{i.label}</div>
+                {i.sub ? <div className="text-xs text-zinc-500 truncate">{i.sub}</div> : null}
+              </div>
+              <div className="text-sm text-zinc-700">{i.value}</div>
+            </div>
+            <div className="h-2 rounded bg-zinc-100 overflow-hidden">
+              <div className="h-2 bg-[var(--brand-blue)]" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function AdminClient() {
+  const [data, setData] = useState<Metrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/admin/metrics?t=${Date.now()}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load metrics.");
+      setData(json);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const tripSeries = useMemo(() => data?.timeseries.map((d) => d.tripPlans) ?? [], [data]);
+  const bikeSeries = useMemo(() => data?.timeseries.map((d) => d.bikeReservations) ?? [], [data]);
+  const parkSeries = useMemo(() => data?.timeseries.map((d) => d.parkingReservations) ?? [], [data]);
+
+  const conversions = useMemo(() => {
+    if (!data) return null;
+    const last14Trips = data.timeseries.reduce((a, b) => a + b.tripPlans, 0);
+    const last14Res = data.timeseries.reduce((a, b) => a + b.bikeReservations + b.parkingReservations, 0);
+    const pct = last14Trips > 0 ? Math.round((last14Res / last14Trips) * 100) : 0;
+    return { last14Trips, last14Res, pct };
+  }, [data]);
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+            <div className="text-sm text-zinc-600">
+              Activity, reservations, and operational signals (last {data?.window.days ?? 14} days).
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <a className="underline text-sm text-zinc-600" href="/admin/users">
+              Admin approvals
+            </a>
+            <a className="underline text-sm text-zinc-600" href="/admin/vehicles">
+              Vehicle management
+            </a>
+            <button
+              onClick={load}
+              className="px-3 py-1.5 rounded border bg-white hover:bg-zinc-100 text-sm"
+              disabled={loading}
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        {err ? (
+          <div className="text-sm text-red-700 border rounded p-3 bg-red-50">
+            {err}
+            <div className="text-xs text-zinc-600 mt-1">
+              If you see <span className="font-mono">Forbidden</span>, you’re not an approved admin.
+            </div>
+          </div>
+        ) : null}
+
+        {!data ? (
+          <div className="rounded-xl border bg-white p-4">
+            {loading ? "Loading dashboard…" : "No data."}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-xl border bg-white p-4">
+                <div className="text-xs text-zinc-500">Total trip plans</div>
+                <div className="text-2xl font-semibold">{fmt(data.totals.tripPlans)}</div>
+                <div className="text-xs text-zinc-500 mt-2">All time</div>
+              </div>
+
+              <div className="rounded-xl border bg-white p-4">
+                <div className="text-xs text-zinc-500">Bike reservations</div>
+                <div className="text-2xl font-semibold">{fmt(data.totals.bikeReservations)}</div>
+                <div className="text-xs text-zinc-500 mt-2">
+                  Active now: {fmt(data.active.bikeReservations)}
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-white p-4">
+                <div className="text-xs text-zinc-500">Parking reservations</div>
+                <div className="text-2xl font-semibold">{fmt(data.totals.parkingReservations)}</div>
+                <div className="text-xs text-zinc-500 mt-2">
+                  Active now: {fmt(data.active.parkingReservations)}
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-white p-4">
+                <div className="text-xs text-zinc-500">Bike stock available</div>
+                <div className="text-2xl font-semibold">{fmt(data.active.bikeStockAvailable)}</div>
+                <div className="text-xs text-zinc-500 mt-2">
+                  {conversions ? `Last 14d conversion: ${conversions.pct}%` : ""}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="rounded-xl border bg-white p-4 lg:col-span-2 space-y-4">
+                <div>
+                  <div className="font-medium">Trends (last 14 days)</div>
+                  <div className="text-xs text-zinc-500">
+                    Simple activity signal. Use bars below for top entities.
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-zinc-500">Trip plans/day</div>
+                    <div className="mt-2 text-[var(--brand-blue)]">
+                      <MiniLineChart points={tripSeries} />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-zinc-500">Bike reservations/day</div>
+                    <div className="mt-2 text-[var(--brand-green)]">
+                      <MiniLineChart points={bikeSeries} />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-zinc-500">Parking reservations/day</div>
+                    <div className="mt-2 text-zinc-900">
+                      <MiniLineChart points={parkSeries} />
+                    </div>
+                  </div>
+                </div>
+
+                {conversions ? (
+                  <div className="rounded-lg border p-3">
+                    <div className="text-sm font-medium">Conversion signal</div>
+                    <div className="text-sm text-zinc-700 mt-1">
+                      Last 14 days: <span className="font-medium">{conversions.last14Trips}</span> trip plans →
+                      <span className="font-medium"> {conversions.last14Res}</span> reservations →
+                      <span className="font-medium"> {conversions.pct}%</span> conversion.
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border bg-white p-4 space-y-3">
+                <div className="font-medium">Actionable insights</div>
+                <div className="space-y-2">
+                  {data.insights.map((i, idx) => (
+                    <div key={idx} className={`border rounded-lg p-3 ${badgeClass(i.type)}`}>
+                      <div className="text-sm font-medium">{i.title}</div>
+                      <div className="text-sm mt-1">{i.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="rounded-xl border bg-white p-4 space-y-3">
+                <div className="font-medium">Top BIXI stations (last 14 days)</div>
+                {data.top.stations.length ? (
+                  <BarList
+                    items={data.top.stations.map((s) => ({
+                      label: s.stationName,
+                      value: s.count,
+                      sub: `stationId: ${s.stationId}`,
+                    }))}
+                  />
+                ) : (
+                  <div className="text-sm text-zinc-600">No bike reservations in this period.</div>
+                )}
+              </div>
+
+              <div className="rounded-xl border bg-white p-4 space-y-3">
+                <div className="font-medium">Top parking locations (last 14 days)</div>
+                {data.top.parking.length ? (
+                  <BarList
+                    items={data.top.parking.map((p) => ({
+                      label: p.name,
+                      value: p.count,
+                      sub: p.address || `parkingId: ${p.parkingId}`,
+                    }))}
+                  />
+                ) : (
+                  <div className="text-sm text-zinc-600">No parking reservations in this period.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="rounded-xl border bg-white p-4">
+                <div className="font-medium mb-2">Recent trip plans</div>
+                <div className="space-y-2">
+                  {data.recent.tripPlans.map((t) => (
+                    <div key={t.id} className="rounded border p-3">
+                      <div className="text-sm font-medium">
+                        {t.origin} → {t.destination}
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        {new Date(t.createdAt).toLocaleString()} · mode: {t.mode}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-white p-4">
+                <div className="font-medium mb-2">Recent bike reservations</div>
+                <div className="space-y-2">
+                  {data.recent.bikeReservations.map((b) => (
+                    <div key={b.id} className="rounded border p-3">
+                      <div className="text-sm font-medium">{b.stationName}</div>
+                      <div className="text-xs text-zinc-500">
+                        {new Date(b.createdAt).toLocaleString()} · userId: {b.userId}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-white p-4">
+                <div className="font-medium mb-2">Recent parking reservations</div>
+                <div className="space-y-2">
+                  {data.recent.parkingReservations.map((p) => (
+                    <div key={p.id} className="rounded border p-3">
+                      <div className="text-sm font-medium">{p.name}</div>
+                      <div className="text-xs text-zinc-500">
+                        {new Date(p.createdAt).toLocaleString()} · userId: {p.userId}
+                      </div>
+                      {p.address ? <div className="text-xs text-zinc-600 mt-1">{p.address}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\admin\page.tsx
+// src/app/admin/page.tsx
+import { requireAdmin } from "@/lib/auth";
+import AdminClient from "./AdminClient";
+
+export default async function AdminPage() {
+  // ✅ runs on the server, can read cookies
+  await requireAdmin();
+
+  // ✅ now render the client UI that can fetch data
+  return <AdminClient />;
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\admin\approve-admins\route.ts
+// src/app/api/admin/approve-admins/route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { withAdmin } from "@/lib/withAuth";
+import { SessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Body = {
+  userId: string;
+  action?: "APPROVED" | "REJECTED";
+};
+
+async function handler(req: Request, _user: SessionUser): Promise<Response> {
+  try {
+    const body = (await req.json()) as Body;
+    const userId = String(body.userId ?? "").trim();
+    const action = body.action ?? "APPROVED";
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (target.role !== "ADMIN") {
+      return NextResponse.json({ error: "Target user is not an admin" }, { status: 400 });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { status: action },
+      select: { id: true, email: true, role: true, status: true },
+    });
+
+    return NextResponse.json({ user: updated });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to update admin status." },
+      { status: 500 }
+    );
+  }
+}
+
+export const POST = withAdmin(handler);
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\admin\metrics\route.ts
+// src/app/api/admin/metrics/route.ts
+// PATTERN: Decorator
+// The route handler is wrapped with withAdmin(), which decorates it with
+// auth + role checking. The handler itself receives a guaranteed SessionUser
+// and contains only business logic — no auth boilerplate.
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { withAdmin } from "@/lib/withAuth";
+import { SessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function dayKey(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function addDays(d: Date, days: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+async function handler(_req: Request, _user: SessionUser): Promise<Response> {
+  const now = new Date();
+  const from = addDays(startOfDay(now), -13);
+
+  const [
+    tripPlansTotal,
+    bikeReservationsTotal,
+    parkingReservationsTotal,
+    activeBikeReservations,
+    activeParkingReservations,
+    recentTripPlansAll,
+    recentBikeReservationsAll,
+    recentParkingReservationsAll,
+    stockRow,
+  ] = await Promise.all([
+    prisma.tripPlan.count(),
+    prisma.bikeReservation.count(),
+    prisma.parkingReservation.count(),
+    prisma.bikeReservation.count(),
+    prisma.parkingReservation.count(),
+    prisma.tripPlan.findMany({
+      where: { createdAt: { gte: from } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, createdAt: true, origin: true, destination: true, mode: true },
+    }),
+    prisma.bikeReservation.findMany({
+      where: { createdAt: { gte: from } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, createdAt: true, stationId: true, stationName: true, userId: true },
+    }),
+    prisma.parkingReservation.findMany({
+      where: { createdAt: { gte: from } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, createdAt: true, parkingId: true, name: true, address: true, userId: true },
+    }),
+    prisma.bikeStock.findUnique({ where: { id: "default" }, select: { available: true } }),
+  ]);
+
+  const map = new Map<string, { tripPlans: number; bikeReservations: number; parkingReservations: number }>();
+  for (let i = 0; i < 14; i++) {
+    const d = addDays(from, i);
+    map.set(dayKey(d), { tripPlans: 0, bikeReservations: 0, parkingReservations: 0 });
+  }
+
+  for (const t of recentTripPlansAll) {
+    const b = map.get(dayKey(new Date(t.createdAt)));
+    if (b) b.tripPlans++;
+  }
+  for (const b of recentBikeReservationsAll) {
+    const bucket = map.get(dayKey(new Date(b.createdAt)));
+    if (bucket) bucket.bikeReservations++;
+  }
+  for (const p of recentParkingReservationsAll) {
+    const b = map.get(dayKey(new Date(p.createdAt)));
+    if (b) b.parkingReservations++;
+  }
+
+  const days = [...map.entries()].map(([day, v]) => ({ day, ...v }));
+
+  const topStations = (() => {
+    const counts = new Map<string, { stationId: string; stationName: string; count: number }>();
+    for (const r of recentBikeReservationsAll) {
+      const cur = counts.get(r.stationId) ?? { stationId: r.stationId, stationName: r.stationName, count: 0 };
+      cur.count++;
+      counts.set(r.stationId, cur);
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5);
+  })();
+
+  const topParking = (() => {
+    const counts = new Map<string, { parkingId: string; name: string; address: string; count: number }>();
+    for (const r of recentParkingReservationsAll) {
+      const cur = counts.get(r.parkingId) ?? { parkingId: r.parkingId, name: r.name, address: r.address, count: 0 };
+      cur.count++;
+      counts.set(r.parkingId, cur);
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5);
+  })();
+
+  const recent = {
+    tripPlans: recentTripPlansAll.slice(-10).reverse(),
+    bikeReservations: recentBikeReservationsAll.slice(-10).reverse(),
+    parkingReservations: recentParkingReservationsAll.slice(-10).reverse(),
+  };
+
+  const insights: { type: "info" | "warning" | "success"; title: string; detail: string }[] = [];
+  const totalLast14Trips = recentTripPlansAll.length;
+  const totalLast14Bike = recentBikeReservationsAll.length;
+  const totalLast14Parking = recentParkingReservationsAll.length;
+
+  if ((stockRow?.available ?? 0) <= 2) {
+    insights.push({ type: "warning", title: "Bike stock is low", detail: `Global reservable bike stock is ${stockRow?.available ?? 0}.` });
+  } else {
+    insights.push({ type: "success", title: "Bike stock OK", detail: `Global reservable bike stock is ${stockRow?.available ?? 0}.` });
+  }
+
+  if (totalLast14Trips > 0 && totalLast14Bike === 0 && totalLast14Parking === 0) {
+    insights.push({ type: "info", title: "Plans aren't converting to reservations", detail: "You have trip planning activity but no bike/parking reservations in the last 14 days." });
+  }
+
+  if (topStations.length) {
+    insights.push({ type: "info", title: "Most reserved BIXI station (last 14 days)", detail: `${topStations[0].stationName} — ${topStations[0].count} reservations.` });
+  }
+
+  if (topParking.length) {
+    insights.push({ type: "info", title: "Most reserved parking location (last 14 days)", detail: `${topParking[0].name} — ${topParking[0].count} reservations.` });
+  }
+
+  return NextResponse.json({
+    window: { days: 14, from: from.toISOString(), to: now.toISOString() },
+    totals: { tripPlans: tripPlansTotal, bikeReservations: bikeReservationsTotal, parkingReservations: parkingReservationsTotal },
+    active: { bikeReservations: activeBikeReservations, parkingReservations: activeParkingReservations, bikeStockAvailable: stockRow?.available ?? 0 },
+    timeseries: days,
+    top: { stations: topStations, parking: topParking },
+    recent,
+    insights,
+  });
+}
+
+// PATTERN: Decorator applied here — handler is wrapped with withAdmin
+export const GET = withAdmin(handler);
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\admin\pending-admins\route.ts
+// src/app/api/admin/pending-admins/route.ts
+// PATTERN: Decorator
+// withAdmin wraps the handler, eliminating the manual auth check that
+// previously lived inside the function body.
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { withAdmin } from "@/lib/withAuth";
+import { SessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const GET = withAdmin(async (_req: Request, _user: SessionUser) => {
+  const pending = await prisma.user.findMany({
+    where: { role: "ADMIN", status: "PENDING" },
+    select: { id: true, email: true, createdAt: true, role: true, status: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return NextResponse.json({ users: pending });
+});
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\admin\vehicles\[id]\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { withAdmin } from "@/lib/withAuth";
+import { SessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Params = { params: Promise<{ id: string }> };
+
+type UpdateBody = {
+  name?: string;
+  type?: string;
+  provider?: string;
+  stationId?: string;
+  stationName?: string;
+  lat?: number | null;
+  lon?: number | null;
+  available?: number;
+  status?: string;
+};
+
+async function patchHandler(req: Request, _user: SessionUser, ctx: Params): Promise<Response> {
+  try {
+    const { id } = await ctx.params;
+    const body = (await req.json()) as UpdateBody;
+
+    const existing = await prisma.vehicle.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Vehicle not found" }, { status: 404 });
+    }
+
+    const updated = await prisma.vehicle.update({
+      where: { id },
+      data: {
+        ...(body.name !== undefined ? { name: String(body.name).trim() } : {}),
+        ...(body.type !== undefined ? { type: String(body.type).trim().toUpperCase() } : {}),
+        ...(body.provider !== undefined ? { provider: String(body.provider).trim() || null } : {}),
+        ...(body.stationId !== undefined ? { stationId: String(body.stationId).trim() || null } : {}),
+        ...(body.stationName !== undefined ? { stationName: String(body.stationName).trim() || null } : {}),
+        ...(body.lat !== undefined
+          ? {
+              lat:
+                body.lat === null || body.lat === ("" as any)
+                  ? null
+                  : Number(body.lat),
+            }
+          : {}),
+        ...(body.lon !== undefined
+          ? {
+              lon:
+                body.lon === null || body.lon === ("" as any)
+                  ? null
+                  : Number(body.lon),
+            }
+          : {}),
+        ...(body.available !== undefined ? { available: Math.max(0, Number(body.available)) } : {}),
+        ...(body.status !== undefined ? { status: String(body.status).trim().toUpperCase() } : {}),
+      },
+    });
+
+    return NextResponse.json({ vehicle: updated });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to update vehicle." },
+      { status: 500 }
+    );
+  }
+}
+
+async function deleteHandler(_req: Request, _user: SessionUser, ctx: Params): Promise<Response> {
+  try {
+    const { id } = await ctx.params;
+
+    const existing = await prisma.vehicle.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Vehicle not found" }, { status: 404 });
+    }
+
+    await prisma.vehicle.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to delete vehicle." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request, ctx: Params) {
+  const wrapped = withAdmin((authedReq, user) => patchHandler(authedReq, user, ctx));
+  return wrapped(req);
+}
+
+export async function DELETE(req: Request, ctx: Params) {
+  const wrapped = withAdmin((authedReq, user) => deleteHandler(authedReq, user, ctx));
+  return wrapped(req);
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\admin\vehicles\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { withAdmin } from "@/lib/withAuth";
+import { SessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type CreateBody = {
+  name: string;
+  type?: string;
+  provider?: string;
+  stationId?: string;
+  stationName?: string;
+  lat?: number;
+  lon?: number;
+  available?: number;
+  status?: string;
+};
+
+async function getHandler(_req: Request, _user: SessionUser): Promise<Response> {
+  const vehicles = await prisma.vehicle.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ vehicles });
+}
+
+async function postHandler(req: Request, _user: SessionUser): Promise<Response> {
+  try {
+    const body = (await req.json()) as CreateBody;
+
+    const name = String(body.name ?? "").trim();
+    const type = String(body.type ?? "BIKE").trim().toUpperCase();
+    const provider = String(body.provider ?? "").trim();
+    const stationId = String(body.stationId ?? "").trim();
+    const stationName = String(body.stationName ?? "").trim();
+    const lat =
+      body.lat === undefined || body.lat === null || body.lat === ""
+        ? null
+        : Number(body.lat);
+    const lon =
+      body.lon === undefined || body.lon === null || body.lon === ""
+        ? null
+        : Number(body.lon);
+    const available = Math.max(0, Number(body.available ?? 0));
+    const status = String(body.status ?? "ACTIVE").trim().toUpperCase();
+
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    }
+
+    if (type === "BIKE" && (!stationId || !stationName)) {
+      return NextResponse.json(
+        { error: "stationId and stationName are required for bikes" },
+        { status: 400 }
+      );
+    }
+
+    if (type === "BIKE" && (lat === null || lon === null || Number.isNaN(lat) || Number.isNaN(lon))) {
+      return NextResponse.json(
+        { error: "lat and lon are required for bikes so they can appear on the map" },
+        { status: 400 }
+      );
+    }
+
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        name,
+        type,
+        provider: provider || null,
+        stationId: stationId || null,
+        stationName: stationName || null,
+        lat,
+        lon,
+        available,
+        status,
+      },
+    });
+
+    return NextResponse.json({ vehicle }, { status: 201 });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to create vehicle." },
+      { status: 500 }
+    );
+  }
+}
+
+export const GET = withAdmin(getHandler);
+export const POST = withAdmin(postHandler);
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\auth\login\route.ts
+// SOEN-343-Project\trip-planner\src\app\api\auth\login\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+
+type Body = { email: string; password: string };
+
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json()) as Body;
+    const email = (body.email ?? "").trim().toLowerCase();
+    const password = body.password ?? "";
+
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    }
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    }
+
+    // Block admin login until approved (and block rejected)
+    if (user.role === "ADMIN" && user.status !== "APPROVED") {
+      return NextResponse.json(
+        { error: `Admin account is ${user.status}.` },
+        { status: 403 }
+      );
+    }
+    if (user.status === "REJECTED") {
+      return NextResponse.json({ error: "Account rejected." }, { status: 403 });
+    }
+
+    const res = NextResponse.json({
+      user: { id: user.id, email: user.email, role: user.role, status: user.status },
+    });
+
+    // Minimal session cookie (project-grade). For production you'd use signed/encrypted tokens.
+    res.cookies.set("session", user.id, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      // secure: true, // enable on https
+    });
+
+    return res;
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Login failed." }, { status: 500 });
+  }
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\auth\logout\route.ts
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function clearCookie(res: NextResponse) {
+  // Clear session cookie
+  res.cookies.set("session", "", {
+    path: "/",
+    maxAge: 0,
+    sameSite: "lax",
+  });
+
+  // Avoid any caching
+  res.headers.set("Cache-Control", "no-store");
+  return res;
+}
+
+export async function POST() {
+  return clearCookie(NextResponse.json({ ok: true }));
+}
+
+export async function GET(req: Request) {
+  // Optional: allow GET logout then redirect home
+  const url = new URL("/", req.url);
+  return clearCookie(NextResponse.redirect(url));
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\auth\me\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: Request) {
+  const cookie = req.headers.get("cookie") ?? "";
+  const match = cookie.match(/(?:^|;\s*)session=([^;]+)/);
+  const session = match?.[1];
+
+  if (!session) return NextResponse.json({ user: null });
+
+  const user = await prisma.user.findUnique({
+    where: { id: session },
+    select: { id: true, email: true, role: true, status: true, createdAt: true },
+  });
+
+  return NextResponse.json({ user: user ?? null });
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\auth\register\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+
+type Body = {
+  name: string;
+  email: string;
+  password: string;
+  role?: "USER" | "ADMIN";
+};
+
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json()) as Body;
+
+    const name = (body.name ?? "").trim();
+    const email = (body.email ?? "").trim().toLowerCase();
+    const password = body.password ?? "";
+    const role = body.role === "ADMIN" ? "ADMIN" : "USER";
+
+    if (!name || !email || !password) {
+      return NextResponse.json(
+        { error: "Name, email, and password are required." },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json(
+        { error: "Email already registered." },
+        { status: 409 }
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Admin accounts must be approved before they can log in
+    const status = role === "ADMIN" ? "PENDING" : "APPROVED";
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        role,
+        status,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    return NextResponse.json({ user });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Registration failed." },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\bikes\cancel\route.ts
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function POST() {
+  try {
+    const user = await requireUser();
+
+    const result = await prisma.$transaction(async (tx) => {
+      const reservation = await tx.bikeReservation.findUnique({
+        where: { userId: user.id },
+        select: { id: true, stationId: true, stationName: true },
+      });
+
+      if (!reservation) {
+        return { ok: false as const, error: "No bike reservation found." };
+      }
+
+      const customStationVehicle = await tx.vehicle.findFirst({
+        where: {
+          type: "BIKE",
+          stationId: reservation.stationId,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (customStationVehicle) {
+        await tx.vehicle.update({
+          where: { id: customStationVehicle.id },
+          data: { available: { increment: 1 } },
+        });
+      }
+
+      await tx.bikeReservation.delete({
+        where: { userId: user.id },
+      });
+
+      return { ok: true as const };
+    });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    const msg = e?.message ?? "FAILED";
+    const status = msg === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\bikes\reserve\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
+
+type Body = { stationId: string; stationName: string };
+
+export async function POST(req: Request) {
+  try {
+    const user = await requireUser();
+    const body = (await req.json()) as Body;
+
+    const stationId = String(body.stationId ?? "").trim();
+    const stationName = String(body.stationName ?? "").trim();
+
+    if (!stationId || !stationName) {
+      return NextResponse.json(
+        { error: "stationId and stationName are required." },
+        { status: 400 }
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.bikeReservation.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (existing) {
+        return {
+          ok: false as const,
+          status: 409,
+          error: "You already have a bike reserved (max 1).",
+        };
+      }
+
+      const customStationVehicle = await tx.vehicle.findFirst({
+        where: {
+          type: "BIKE",
+          status: "ACTIVE",
+          stationId,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (customStationVehicle) {
+        if ((customStationVehicle.available ?? 0) <= 0) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: "No reservable bikes available at this station.",
+          };
+        }
+
+        await tx.vehicle.update({
+          where: { id: customStationVehicle.id },
+          data: { available: { decrement: 1 } },
+        });
+
+        const reservation = await tx.bikeReservation.create({
+          data: {
+            userId: user.id,
+            stationId,
+            stationName,
+          },
+          select: { id: true, stationId: true, stationName: true, createdAt: true },
+        });
+
+        return { ok: true as const, reservation };
+      }
+
+      // Fallback for regular external BIXI stations already shown on the map.
+      const reservation = await tx.bikeReservation.create({
+        data: {
+          userId: user.id,
+          stationId,
+          stationName,
+        },
+        select: { id: true, stationId: true, stationName: true, createdAt: true },
+      });
+
+      return { ok: true as const, reservation };
+    });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json({ reservation: result.reservation });
+  } catch (e: any) {
+    const msg = e?.message ?? "FAILED";
+    const status = msg === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\bikes\return\route.ts
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import { BikeReservationCommand } from "@/lib/commands/ReservationCommand";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function POST() {
+  try {
+    const user = await requireUser();
+
+    const command = new BikeReservationCommand({
+      userId: user.id,
+      stationId: "",
+      stationName: "",
+    });
+
+    const result = await command.undo();
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    const msg = e?.message ?? "FAILED";
+    const status = msg === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\bikes\stations\route.ts
+// src/app/api/bikes/stations/route.ts
+// PATTERN: Adapter
+// This route bridges the gap between the raw GBFS feed format and what the
+// frontend needs. Instead of the browser fetching gbfs.velobixi.com directly,
+// it calls this endpoint, which delegates to gbfs.ts — the adapter that
+// normalizes inconsistent GBFS field names, handles missing availability data,
+// and returns a clean GbfsStation[] shape the UI can rely on.
+import { NextResponse } from "next/server";
+import { getBixiStationsMerged } from "@/lib/providers/gbfs";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type UiStation = {
+  station_id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  capacity: number;
+  bikes_available: number;
+  docks_available: number;
+  is_installed: number;
+  is_renting: number;
+  is_returning: number;
+  last_reported: number;
+};
+
+export async function GET() {
+  try {
+    const [bixiStations, customBikeStations] = await Promise.all([
+      getBixiStationsMerged(),
+      prisma.vehicle.findMany({
+        where: {
+          type: "BIKE",
+          status: "ACTIVE",
+          stationId: { not: null },
+          stationName: { not: null },
+          lat: { not: null },
+          lon: { not: null },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    const customStations: UiStation[] = customBikeStations.map((v) => {
+      const bikes = Math.max(0, v.available ?? 0);
+      const capacity = Math.max(bikes, bikes + 10);
+
+      return {
+        station_id: String(v.stationId),
+        name: String(v.stationName),
+        lat: Number(v.lat),
+        lon: Number(v.lon),
+        capacity,
+        bikes_available: bikes,
+        docks_available: Math.max(0, capacity - bikes),
+        is_installed: 1,
+        is_renting: bikes > 0 ? 1 : 0,
+        is_returning: 1,
+        last_reported: Math.floor(new Date(v.updatedAt).getTime() / 1000),
+      };
+    });
+
+    const merged = [...bixiStations, ...customStations];
+
+    merged.sort((a, b) => (b.bikes_available ?? 0) - (a.bikes_available ?? 0));
+
+    return NextResponse.json(
+      { stations: merged },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to load bike stations." },
+      { status: 502 }
+    );
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\bikes\status\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+
+export async function GET() {
+  const user = await getSessionUser();
+
+  const reservation = user
+    ? await prisma.bikeReservation.findUnique({
+        where: { userId: user.id },
+        select: { id: true, stationId: true, stationName: true, createdAt: true },
+      })
+    : null;
+
+  let available: number | null = null;
+
+  if (reservation) {
+    const customStationVehicle = await prisma.vehicle.findFirst({
+      where: {
+        type: "BIKE",
+        stationId: reservation.stationId,
+      },
+      orderBy: { createdAt: "asc" },
+      select: { available: true },
+    });
+
+    available = customStationVehicle?.available ?? null;
+  }
+
+  return NextResponse.json({
+    available,
+    reservation,
+    user: user ? { id: user.id, email: user.email, name: user.name } : null,
+  });
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\orders\[id]\route.ts
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+
+    const order = await prisma.mockOrder.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        type: true,
+        priceCents: true,
+        status: true,
+        detailsJson: true,
+      },
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ order });
+  } catch (e: any) {
+    const msg = e?.message ?? "FAILED";
+    return NextResponse.json({ error: msg }, { status: msg === "UNAUTHORIZED" ? 401 : 500 });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\orders\route.ts
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const user = await requireUser();
+
+    const orders = await prisma.mockOrder.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        type: true,
+        priceCents: true,
+        status: true,
+        detailsJson: true,
+      },
+    });
+
+    return NextResponse.json({ orders });
+  } catch (e: any) {
+    const msg = e?.message ?? "FAILED";
+    return NextResponse.json({ error: msg }, { status: msg === "UNAUTHORIZED" ? 401 : 500 });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\parking\cancel\route.ts
+// src/app/api/parking/cancel/route.ts
+// PATTERN: Command
+// Cancel is command.undo() — symmetric with execute() in the reserve flow.
+
+import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
+import { ParkingReservationCommand } from "@/lib/commands/ReservationCommand";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function POST() {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "LOGIN_REQUIRED" }, { status: 401 });
+  }
+
+  // stationId/name/coords not needed for undo (cancel looks up by userId)
+  const command = new ParkingReservationCommand({
+    userId: user.id,
+    parkingId: "",
+    name: "",
+    lat: 0,
+    lon: 0,
+  });
+
+  const result = await command.undo();
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\parking\reserve\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Body = {
+  parkingId: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lon: number;
+};
+
+export async function POST(req: Request) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "LOGIN_REQUIRED" }, { status: 401 });
+  }
+
+  const body = (await req.json()) as Body;
+
+  if (
+    !body?.parkingId ||
+    !body?.name ||
+    !Number.isFinite(body.lat) ||
+    !Number.isFinite(body.lon)
+  ) {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const existing = await prisma.parkingReservation.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return NextResponse.json(
+      { error: "You already have an active parking reservation." },
+      { status: 409 }
+    );
+  }
+
+  const saved = await prisma.parkingReservation.create({
+    data: {
+      userId: user.id,
+      parkingId: String(body.parkingId),
+      name: String(body.name),
+      address: String(body.address ?? ""),
+      lat: body.lat,
+      lon: body.lon,
+    },
+  });
+
+  return NextResponse.json({ ok: true, reservationId: saved.id });
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\parking\return\route.ts
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import { BikeReservationCommand } from "@/lib/commands/ReservationCommand";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function POST() {
+  try {
+    const user = await requireUser();
+
+    const command = new BikeReservationCommand({
+      userId: user.id,
+      stationId: "",
+      stationName: "",
+    });
+
+    const result = await command.undo();
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    const msg = e?.message ?? "FAILED";
+    const status = msg === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\parking\status\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function GET() {
+  const user = await getSessionUser();
+
+  if (!user) {
+    // public endpoint; just says no user/no reservation
+    return NextResponse.json({
+      user: null,
+      reservation: null,
+    });
+  }
+
+  const reservation = await prisma.parkingReservation.findUnique({
+    where: { userId: user.id },
+    select: {
+      id: true,
+      parkingId: true,
+      name: true,
+      address: true,
+      lat: true,
+      lon: true,
+      createdAt: true,
+    },
+  });
+
+  return NextResponse.json({
+    user: { id: user.id, email: user.email, name: user.name },
+    reservation,
+  });
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\parking\route.ts
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// Off-street ("hors rue") paid parking pay stations dataset
+const BORNES_HORS_RUE_CSV =
+  "https://www.agencemobilitedurable.ca/images/data/BornesHorsRue.csv";
+
+/**
+ * Robust coordinate parsing:
+ * Handles "-73. 6053" (space after dot), "45,5021", etc.
+ */
+function parseCoord(v: unknown): number {
+  const s = String(v ?? "")
+    .trim()
+    .replace(",", ".")
+    .replace(/\s+/g, ""); // remove spaces everywhere
+
+  const cleaned = s.replace(/[^0-9.-]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/**
+ * Minimal CSV parser that supports quoted fields and commas.
+ */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cur += c;
+      }
+      continue;
+    }
+
+    if (c === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (c === ",") {
+      row.push(cur);
+      cur = "";
+      continue;
+    }
+
+    if (c === "\n") {
+      row.push(cur);
+      cur = "";
+      if (row.some((v) => v.trim() !== "")) rows.push(row);
+      row = [];
+      continue;
+    }
+
+    if (c === "\r") continue;
+
+    cur += c;
+  }
+
+  if (cur.length || row.length) {
+    row.push(cur);
+    if (row.some((v) => v.trim() !== "")) rows.push(row);
+  }
+
+  return rows;
+}
+
+function findCol(headers: string[], candidates: string[]) {
+  const norm = (s: string) => s.trim().toLowerCase();
+  const h = headers.map(norm);
+
+  // exact match first
+  for (const cand of candidates) {
+    const idx = h.indexOf(norm(cand));
+    if (idx !== -1) return idx;
+  }
+
+  // contains match fallback
+  for (const cand of candidates) {
+    const c = norm(cand);
+    const idx = h.findIndex((x) => x.includes(c));
+    if (idx !== -1) return idx;
+  }
+
+  return -1;
+}
+
+export async function GET() {
+  const res = await fetch(BORNES_HORS_RUE_CSV, { cache: "no-store" });
+  if (!res.ok) {
+    return NextResponse.json(
+      { error: `Failed to fetch parking CSV (${res.status})` },
+      { status: 502 }
+    );
+  }
+
+  const csv = await res.text();
+  const table = parseCsv(csv);
+
+  if (table.length < 2) {
+    return NextResponse.json({ source: "BornesHorsRue", count: 0, items: [] });
+  }
+
+  const headers = table[0];
+
+  // Common header names in EN/FR datasets
+  const latIdx = findCol(headers, ["latitude", "lat"]);
+  const lonIdx = findCol(headers, ["longitude", "lon", "lng"]);
+  const idIdx = findCol(headers, ["id", "identifiant", "borne_id", "id_borne"]);
+  const nameIdx = findCol(headers, ["nom", "name", "station", "site"]);
+  const addrIdx = findCol(headers, ["adresse", "address", "lieu", "emplacement"]);
+
+  const items = table.slice(1).map((r, i) => {
+    const lat = latIdx >= 0 ? parseCoord(r[latIdx]) : NaN;
+    const lon = lonIdx >= 0 ? parseCoord(r[lonIdx]) : NaN;
+
+    const id =
+      (idIdx >= 0 && String(r[idIdx] ?? "").trim()) || `horsrue-${i}`;
+
+    const name =
+      (nameIdx >= 0 && String(r[nameIdx] ?? "").trim()) || "Off-street parking";
+
+    const address = (addrIdx >= 0 && String(r[addrIdx] ?? "").trim()) || "";
+
+    return {
+      id,
+      name,
+      address,
+      lat,
+      lon,
+      raw: Object.fromEntries(headers.map((h, j) => [h, r[j] ?? ""])),
+    };
+  });
+
+  // Montréal-ish bounding box to remove outliers that cause "Africa" fitBounds
+  const MTL = {
+    minLat: 45.35,
+    maxLat: 45.75,
+    minLon: -73.95,
+    maxLon: -73.35,
+  };
+
+  const filtered = items.filter((x) => {
+    if (!Number.isFinite(x.lat) || !Number.isFinite(x.lon)) return false;
+    return (
+      x.lat >= MTL.minLat &&
+      x.lat <= MTL.maxLat &&
+      x.lon >= MTL.minLon &&
+      x.lon <= MTL.maxLon
+    );
+  });
+
+  return NextResponse.json(
+    { source: "BornesHorsRue", count: filtered.length, items: filtered },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    }
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\payment\checkout\route.ts
+// src/app/api/payment/checkout/route.ts
+// PATTERNS USED: Command, Factory
+// Instead of inline if/else blocks that manually create reservations and orders,
+// this route constructs the appropriate Command object and calls execute().
+// The Command internally uses OrderFactory to build the order payload.
+// To cancel a reservation, you would call command.undo().
+
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import {
+  BikeReservationCommand,
+  ParkingReservationCommand,
+} from "@/lib/commands/ReservationCommand";
+
+type BikeBody = {
+  type: "bike";
+  stationId: string;
+  stationName: string;
+  cardName: string;
+  cardNumber: string;
+  expiry: string;
+  cvv: string;
+};
+
+type ParkingBody = {
+  type: "parking";
+  parkingId: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lon: number;
+  cardName: string;
+  cardNumber: string;
+  expiry: string;
+  cvv: string;
+};
+
+type Body = BikeBody | ParkingBody;
+
+function validPaymentFields(body: any) {
+  return (
+    String(body?.cardName ?? "").trim().length >= 2 &&
+    String(body?.cardNumber ?? "").replace(/\s+/g, "").length >= 12 &&
+    String(body?.expiry ?? "").trim().length >= 4 &&
+    String(body?.cvv ?? "").trim().length >= 3
+  );
+}
+
+export async function POST(req: Request) {
+  try {
+    const user = await requireUser();
+    const body = (await req.json()) as Body;
+
+    if (!validPaymentFields(body)) {
+      return NextResponse.json({ error: "Invalid payment information." }, { status: 400 });
+    }
+
+    if (body.type === "bike") {
+      const stationId = String(body.stationId ?? "").trim();
+      const stationName = String(body.stationName ?? "").trim();
+
+      if (!stationId || !stationName) {
+        return NextResponse.json({ error: "Missing bike reservation details." }, { status: 400 });
+      }
+
+      // PATTERN: Command — construct and execute
+      const command = new BikeReservationCommand({ userId: user.id, stationId, stationName });
+      const result = await command.execute();
+
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+
+      return NextResponse.json({ ok: true, orderId: result.orderId });
+    }
+
+    if (body.type === "parking") {
+      const parkingId = String(body.parkingId ?? "").trim();
+      const name = String(body.name ?? "").trim();
+      const address = String(body.address ?? "");
+      const lat = Number(body.lat);
+      const lon = Number(body.lon);
+
+      if (!parkingId || !name || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return NextResponse.json({ error: "Missing parking reservation details." }, { status: 400 });
+      }
+
+      // PATTERN: Command — construct and execute
+      const command = new ParkingReservationCommand({
+        userId: user.id,
+        parkingId,
+        name,
+        address,
+        lat,
+        lon,
+      });
+      const result = await command.execute();
+
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+
+      return NextResponse.json({ ok: true, orderId: result.orderId });
+    }
+
+    return NextResponse.json({ error: "Invalid checkout type." }, { status: 400 });
+  } catch (e: any) {
+    const msg = e?.message ?? "Checkout failed";
+    const status = msg === "UNAUTHORIZED" ? 401 : 400;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\api\trips\plan\route.ts
+// SOEN-343-Project\trip-planner\src\app\api\trips\plan\route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const PLAN_VERSION = "transit-only-v3-2026-02-13";
+
+type Body = {
+  origin: { lat: number; lon: number; label?: string };
+  destination: { lat: number; lon: number; label?: string };
+  mode?: "transit" | "bixi" | "transit+bixi";
+};
+
+export async function POST(req: Request) {
+  const body = (await req.json()) as Body;
+
+  // ✅ Force transit-only regardless of what the client sends
+  const mode = "transit";
+
+  const plan = {
+    planVersion: PLAN_VERSION,
+    mode,
+    origin: body.origin,
+    destination: body.destination,
+    bixi: null, // ✅ always null now
+    stm: null,
+  };
+
+  // ✅ server-side proof in your terminal
+  console.log("[/api/trips/plan]", PLAN_VERSION, {
+    origin: plan.origin?.label ?? plan.origin,
+    destination: plan.destination?.label ?? plan.destination,
+  });
+
+  const saved = await prisma.tripPlan.create({
+    data: {
+      origin: body.origin.label ?? `${body.origin.lat},${body.origin.lon}`,
+      destination: body.destination.label ?? `${body.destination.lat},${body.destination.lon}`,
+      mode,
+      resultJson: JSON.stringify(plan),
+    },
+  });
+
+  return NextResponse.json(
+    { tripId: saved.id, plan },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+        "X-Plan-Version": PLAN_VERSION,
+      },
+    }
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\auth\login\page.tsx
+// SOEN-343-Project\trip-planner\src\app\auth\login\page.tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const nextUrl = useMemo(() => sp.get("next") ?? "/", [sp]);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit() {
+    setMsg(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ email, password }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) throw new Error(json?.error ?? "Login failed");
+
+      // ✅ Navigate after login so server components (NavBar) re-render with cookies
+      router.replace(nextUrl);
+      router.refresh(); // forces server components to re-read cookies
+    } catch (e: any) {
+      setMsg(e?.message ?? "Login failed");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-md mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Log in</h1>
+        </div>
+
+        <div className="rounded border bg-white p-4 space-y-3">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Email</div>
+            <input
+              className="w-full border rounded px-3 py-2 text-zinc-900 bg-white"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Password</div>
+            <input
+              className="w-full border rounded px-3 py-2 text-zinc-900 bg-white"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="your password"
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button
+            onClick={submit}
+            disabled={loading}
+            className="w-full px-4 py-2 rounded bg-black text-white disabled:opacity-50"
+          >
+            {loading ? "Logging in..." : "Log in"}
+          </button>
+
+          {msg && <div className="text-sm text-red-700">{msg}</div>}
+
+          <div className="text-sm text-zinc-600">
+            No account?{" "}
+            <a className="underline" href="/auth/register">
+              Create one
+            </a>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\auth\register\page.tsx
+"use client";
+
+import { useState } from "react";
+
+export default function RegisterPage() {
+  const [role, setRole] = useState<"USER" | "ADMIN">("USER");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [doneMsg, setDoneMsg] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setDoneMsg(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, name, email, password }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Registration failed.");
+
+      if (json?.user?.role === "ADMIN") {
+        setDoneMsg(
+          "Admin account created and is pending approval. You will be able to log in once approved."
+        );
+      } else {
+        // Normal users can go straight to login
+        window.location.href = "/auth/login";
+        return;
+      }
+    } catch (e: any) {
+      setErr(e?.message ?? "Registration failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex justify-center py-12">
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-md rounded-xl border bg-white p-6 space-y-4"
+      >
+        <h1 className="text-xl font-semibold text-center">Create Account</h1>
+
+        {err && (
+          <div className="text-sm text-red-700 border border-red-200 rounded p-2 bg-red-50">
+            {err}
+          </div>
+        )}
+
+        {doneMsg && (
+          <div className="text-sm text-emerald-800 border border-emerald-200 rounded p-2 bg-emerald-50">
+            {doneMsg}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm mb-1">Account Type</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as "USER" | "ADMIN")}
+            className="w-full border rounded-lg px-3 py-2"
+          >
+            <option value="USER">User</option>
+            <option value="ADMIN">Admin (requires approval)</option>
+          </select>
+
+          {role === "ADMIN" && (
+            <p className="mt-1 text-xs text-zinc-600">
+              Admin accounts are created as <b>PENDING</b> and must be approved before logging in.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Email</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Password</label>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
+        </div>
+
+        <button
+          disabled={loading}
+          className="w-full py-2 rounded-lg bg-black text-white hover:opacity-90 transition disabled:opacity-50"
+        >
+          {loading ? "Creating..." : "Create Account"}
+        </button>
+
+        <div className="text-center">
+          <a className="underline text-sm text-zinc-700" href="/auth/login">
+            Already have an account? Login
+          </a>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\orders\[id]\page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Order = {
+  id: string;
+  createdAt: string;
+  type: string;
+  priceCents: number;
+  status: string;
+  detailsJson: string;
+};
+
+function formatPrice(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export default function OrderDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const [order, setOrder] = useState<Order | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { id } = await params;
+
+      try {
+        const res = await fetch(`/api/orders/${id}`, { cache: "no-store" });
+        const json = await res.json();
+
+        if (res.status === 401) {
+          window.location.href = `/auth/login?next=${encodeURIComponent(`/orders/${id}`)}`;
+          return;
+        }
+
+        if (!res.ok) throw new Error(json?.error ?? "Failed to load order.");
+
+        setOrder(json.order);
+      } catch (e: any) {
+        setMsg(e?.message ?? "Failed to load order.");
+      }
+    })();
+  }, [params]);
+
+  if (msg) {
+    return (
+      <main className="min-h-screen bg-zinc-50 p-6">
+        <div className="max-w-2xl mx-auto text-red-700">{msg}</div>
+      </main>
+    );
+  }
+
+  if (!order) {
+    return (
+      <main className="min-h-screen bg-zinc-50 p-6">
+        <div className="max-w-2xl mx-auto">Loading...</div>
+      </main>
+    );
+  }
+
+  const details = JSON.parse(order.detailsJson || "{}");
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-semibold">Order Summary</h1>
+
+        <div className="rounded border bg-white p-6 space-y-3">
+          <div>
+            <div className="text-sm text-zinc-500">Order ID</div>
+            <div className="font-mono text-sm">{order.id}</div>
+          </div>
+
+          <div>
+            <div className="text-sm text-zinc-500">Type</div>
+            <div className="capitalize">{order.type}</div>
+          </div>
+
+          <div>
+            <div className="text-sm text-zinc-500">Status</div>
+            <div className="text-green-700 font-medium">{order.status}</div>
+          </div>
+
+          <div>
+            <div className="text-sm text-zinc-500">Amount</div>
+            <div className="font-semibold">{formatPrice(order.priceCents)}</div>
+          </div>
+
+          <div>
+            <div className="text-sm text-zinc-500">Purchased on</div>
+            <div>{new Date(order.createdAt).toLocaleString()}</div>
+          </div>
+
+          {order.type === "bike" ? (
+            <div>
+              <div className="text-sm text-zinc-500">Station</div>
+              <div>{details.stationName}</div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <div className="text-sm text-zinc-500">Parking</div>
+                <div>{details.name}</div>
+              </div>
+              {details.address ? (
+                <div>
+                  <div className="text-sm text-zinc-500">Address</div>
+                  <div>{details.address}</div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\orders\page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+type Order = {
+  id: string;
+  createdAt: string;
+  type: string;
+  priceCents: number;
+  status: string;
+  detailsJson: string;
+};
+
+function formatPrice(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/orders", { cache: "no-store" });
+        const json = await res.json();
+
+        if (res.status === 401) {
+          window.location.href = `/auth/login?next=${encodeURIComponent("/orders")}`;
+          return;
+        }
+
+        if (!res.ok) throw new Error(json?.error ?? "Failed to load orders.");
+
+        setOrders(json.orders ?? []);
+      } catch (e: any) {
+        setMsg(e?.message ?? "Failed to load orders.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-3xl mx-auto space-y-4">
+        <h1 className="text-2xl font-semibold">My Orders</h1>
+
+        {loading ? <div>Loading...</div> : null}
+        {msg ? <div className="text-red-700">{msg}</div> : null}
+
+        {!loading && !msg && orders.length === 0 ? (
+          <div className="rounded border bg-white p-4 text-zinc-600">
+            No orders yet.
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          {orders.map((order) => {
+            const details = JSON.parse(order.detailsJson || "{}");
+
+            return (
+              <Link
+                key={order.id}
+                href={`/orders/${order.id}`}
+                className="block rounded border bg-white p-4 hover:bg-zinc-50 transition"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="font-semibold capitalize">{order.type} order</div>
+                    <div className="text-sm text-zinc-600">
+                      {order.type === "bike"
+                        ? details.stationName
+                        : details.name}
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-1">
+                      {new Date(order.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="font-semibold">{formatPrice(order.priceCents)}</div>
+                    <div className="text-sm text-green-700">{order.status}</div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\parking\page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type ParkingItem = {
+  parkingId: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lon: number;
+};
+
+type ParkingStatus = {
+  user: null | { id: string; email: string; name?: string | null };
+  reservation: null | {
+    id: string;
+    parkingId: string;
+    name: string;
+    address?: string;
+    lat: number;
+    lon: number;
+    createdAt: string;
+  };
+};
+
+export default function ParkingPage() {
+  const router = useRouter();
+
+  const [rows, setRows] = useState<ParkingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMsg, setLoadingMsg] = useState<string | null>(null);
+  const [reserveMsg, setReserveMsg] = useState<string | null>(null);
+  const [reserveBusy, setReserveBusy] = useState(false);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<ParkingStatus | null>(null);
+  const [selected, setSelected] = useState<ParkingItem | null>(null);
+
+  const loggedIn = !!status?.user;
+  const hasReservation = !!status?.reservation;
+
+  async function loadParkingStatus() {
+    const res = await fetch("/api/parking/status", { cache: "no-store" });
+    const json = (await res.json()) as ParkingStatus;
+    setStatus(json);
+  }
+
+  async function loadParking() {
+    setLoading(true);
+    setLoadingMsg(null);
+
+    try {
+      const res = await fetch("/api/parking/search", { cache: "no-store" });
+      const json = await res.json();
+
+      const items = (json?.items ?? []) as ParkingItem[];
+      setRows(items);
+      setSelected((prev) => {
+        if (!prev) return items[0] ?? null;
+        return items.find((x) => x.parkingId === prev.parkingId) ?? items[0] ?? null;
+      });
+    } catch (e: any) {
+      setLoadingMsg(e?.message ?? "Failed to load parking.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadParkingStatus();
+    loadParking();
+  }, []);
+
+  async function reserveParking(item: ParkingItem) {
+    setReserveBusy(true);
+    setReserveMsg(null);
+
+    try {
+      const paymentUrl =
+        `/payment?type=parking` +
+        `&parkingId=${encodeURIComponent(item.parkingId)}` +
+        `&name=${encodeURIComponent(item.name)}` +
+        `&address=${encodeURIComponent(item.address ?? "")}` +
+        `&lat=${encodeURIComponent(String(item.lat))}` +
+        `&lon=${encodeURIComponent(String(item.lon))}`;
+
+      router.push(paymentUrl);
+    } catch (e: any) {
+      setReserveMsg(e?.message ?? "Failed to start parking checkout.");
+    } finally {
+      setReserveBusy(false);
+    }
+  }
+
+  async function returnParking() {
+    setReserveMsg(null);
+
+    if (!loggedIn) {
+      window.location.href = `/auth/login?next=${encodeURIComponent("/parking")}`;
+      return;
+    }
+
+    setReserveBusy(true);
+    try {
+      const res = await fetch("/api/parking/return", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        window.location.href = `/auth/login?next=${encodeURIComponent("/parking")}`;
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.error ?? "Return failed.");
+      }
+
+      await loadParkingStatus();
+      setReserveMsg("Parking space returned.");
+    } catch (e: any) {
+      setReserveMsg(e?.message ?? "Return failed.");
+    } finally {
+      setReserveBusy(false);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+
+    return rows.filter((x) => {
+      return (
+        x.name.toLowerCase().includes(needle) ||
+        String(x.parkingId).toLowerCase().includes(needle) ||
+        String(x.address ?? "").toLowerCase().includes(needle)
+      );
+    });
+  }, [rows, q]);
+
+  return (
+    <main className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-[var(--brand-dark)]">Parking</h1>
+      </div>
+
+      <div className="rounded-xl border bg-white p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="text-sm text-zinc-600">Parking reservation status</div>
+
+            {!loggedIn ? (
+              <div className="text-sm text-zinc-600 mt-1">
+                You must log in to reserve parking.
+              </div>
+            ) : hasReservation ? (
+              <div className="text-sm text-zinc-600 mt-1">
+                Your reservation:{" "}
+                <span className="font-medium text-[var(--brand-dark)]">
+                  {status?.reservation?.name}
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-600 mt-1">No active reservation.</div>
+            )}
+          </div>
+
+          {loggedIn && hasReservation && (
+            <button
+              onClick={returnParking}
+              disabled={reserveBusy}
+              className="px-4 py-2 rounded-lg border bg-white hover:bg-zinc-50 transition disabled:opacity-50"
+            >
+              Return Parking Space
+            </button>
+          )}
+        </div>
+
+        {reserveMsg && <div className="mt-3 text-sm text-zinc-700">{reserveMsg}</div>}
+      </div>
+
+      <div className="rounded-xl border bg-white p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-zinc-600">
+            {loading
+              ? "Loading parking…"
+              : loadingMsg
+              ? "Failed to load parking"
+              : `Showing ${filtered.length} / ${rows.length} locations`}
+          </div>
+
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search parking…"
+            className="border rounded-lg px-3 py-2 text-sm w-full sm:w-[320px]"
+          />
+        </div>
+
+        {loadingMsg && <div className="text-sm text-red-600">{loadingMsg}</div>}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 rounded-xl border bg-[var(--brand-light)] p-4">
+            <div className="font-medium mb-2">Available locations</div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-zinc-900">
+                <thead className="text-left text-zinc-600 border-b">
+                  <tr>
+                    <th className="py-2">Location</th>
+                    <th className="py-2">Address</th>
+                    <th className="py-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => (
+                    <tr
+                      key={item.parkingId}
+                      className={`border-b ${
+                        selected?.parkingId === item.parkingId ? "bg-zinc-50" : ""
+                      }`}
+                      onClick={() => setSelected(item)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td className="py-2 font-medium">{item.name}</td>
+                      <td className="py-2 text-zinc-600">{item.address || "—"}</td>
+                      <td className="py-2 text-right">
+                        <button
+                          disabled={hasReservation || reserveBusy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reserveParking(item);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-white bg-[var(--brand-blue)] hover:opacity-90 transition disabled:opacity-40"
+                        >
+                          {hasReservation
+                            ? "Already reserved"
+                            : reserveBusy
+                            ? "Loading…"
+                            : "Reserve"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-3 text-xs text-zinc-500">
+                Showing {filtered.length} / {rows.length} locations
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-white p-4">
+            <div className="font-medium mb-2">Details</div>
+
+            {!selected ? (
+              <div className="text-sm text-zinc-600">
+                Select a parking location to view details.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <div className="text-lg font-semibold">{selected.name}</div>
+                  <div className="text-sm text-zinc-600 mt-1">{selected.address || "—"}</div>
+                  <div className="text-xs text-zinc-500 mt-1">
+                    {selected.lat}, {selected.lon}
+                  </div>
+                </div>
+
+                <button
+                  disabled={hasReservation || reserveBusy}
+                  onClick={() => reserveParking(selected)}
+                  className="w-full px-4 py-2 rounded-lg text-white bg-[var(--brand-blue)] hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {hasReservation
+                    ? "Already reserved"
+                    : reserveBusy
+                    ? "Loading…"
+                    : "Reserve"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\payment\page.tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+function formatPrice(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export default function PaymentPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const type = sp.get("type");
+  const stationId = sp.get("stationId") ?? "";
+  const stationName = sp.get("stationName") ?? "";
+
+  const parkingId = sp.get("parkingId") ?? "";
+  const name = sp.get("name") ?? "";
+  const address = sp.get("address") ?? "";
+  const lat = sp.get("lat") ?? "";
+  const lon = sp.get("lon") ?? "";
+
+  const nextUrl = useMemo(
+    () => `/payment?${sp.toString()}`,
+    [sp]
+  );
+
+  const summary = useMemo(() => {
+    if (type === "bike") {
+      return {
+        title: "Bike Reservation",
+        amount: 499,
+        details: stationName || "Selected BIXI station",
+      };
+    }
+
+    if (type === "parking") {
+      return {
+        title: "Parking Reservation",
+        amount: 1299,
+        details: name || "Selected parking location",
+      };
+    }
+
+    return null;
+  }, [type, stationName, name]);
+
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function purchase() {
+    setMsg(null);
+    setBusy(true);
+
+    try {
+      const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+      const meJson = await meRes.json();
+
+      if (!meJson?.user) {
+        router.replace(`/auth/login?next=${encodeURIComponent(nextUrl)}`);
+        return;
+      }
+
+      const body =
+        type === "bike"
+          ? {
+              type: "bike",
+              stationId,
+              stationName,
+              cardName,
+              cardNumber,
+              expiry,
+              cvv,
+            }
+          : {
+              type: "parking",
+              parkingId,
+              name,
+              address,
+              lat: Number(lat),
+              lon: Number(lon),
+              cardName,
+              cardNumber,
+              expiry,
+              cvv,
+            };
+
+      const res = await fetch("/api/payment/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? "Purchase failed.");
+
+      setSuccess(true);
+
+      setTimeout(() => {
+        router.replace(`/orders/${json.orderId}`);
+        router.refresh();
+      }, 1400);
+    } catch (e: any) {
+      setMsg(e?.message ?? "Purchase failed.");
+      setBusy(false);
+    }
+  }
+
+  if (!summary) {
+    return (
+      <main className="min-h-screen bg-zinc-50 p-6">
+        <div className="max-w-xl mx-auto rounded border bg-white p-6">
+          <h1 className="text-2xl font-semibold">Invalid payment request</h1>
+          <p className="mt-2 text-zinc-600">Missing reservation details.</p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
+      <div className="max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-semibold">Mock Payment</h1>
+
+        <div className="rounded border bg-white p-4 space-y-2">
+          <div className="text-sm text-zinc-500">Order summary</div>
+          <div className="text-lg font-semibold">{summary.title}</div>
+          <div className="text-zinc-700">{summary.details}</div>
+          {type === "parking" && address ? (
+            <div className="text-sm text-zinc-500">{address}</div>
+          ) : null}
+          <div className="pt-2 text-xl font-bold">{formatPrice(summary.amount)}</div>
+        </div>
+
+        <div className="rounded border bg-white p-4 space-y-3">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Cardholder name</div>
+            <input
+              className="w-full border rounded px-3 py-2 bg-white"
+              value={cardName}
+              onChange={(e) => setCardName(e.target.value)}
+              placeholder="John Doe"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Card number</div>
+            <input
+              className="w-full border rounded px-3 py-2 bg-white"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(e.target.value)}
+              placeholder="4111 1111 1111 1111"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Expiry</div>
+              <input
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={expiry}
+                onChange={(e) => setExpiry(e.target.value)}
+                placeholder="12/27"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-sm font-medium">CVV</div>
+              <input
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value)}
+                placeholder="123"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={purchase}
+            disabled={busy || success}
+            className="w-full px-4 py-2 rounded bg-[var(--brand-green)] text-white disabled:opacity-50"
+          >
+            {busy ? "Processing..." : "Purchase"}
+          </button>
+
+          {msg && <div className="text-sm text-red-700">{msg}</div>}
+        </div>
+
+        {success && (
+          <div className="rounded border bg-white p-8 flex flex-col items-center justify-center">
+            <div className="h-20 w-20 rounded-full border-4 border-green-500 flex items-center justify-center animate-pulse">
+              <span className="text-4xl text-green-600">✓</span>
+            </div>
+            <div className="mt-4 text-lg font-semibold text-green-700">
+              Payment successful
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\planner\AddressPicker.tsx
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+type LatLon = { lat: number; lon: number; label?: string };
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+export default function AddressPicker(props: {
+  label: string;
+  placeholder: string;
+  onSelect: (value: LatLon) => void;
+  ready: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const autocompleteRef = useRef<any>(null);
+  const [help, setHelp] = useState("Loading Places…");
+
+  useEffect(() => {
+    // Wait until Google Places is actually ready
+    if (!props.ready) {
+      setHelp("Loading Places…");
+      return;
+    }
+
+    if (!window.google?.maps?.places) {
+      setHelp("Places not available (check API enablement / key)");
+      return;
+    }
+
+    if (!inputRef.current) return;
+
+    // Avoid double init
+    if (autocompleteRef.current) {
+      setHelp("Choose a suggestion from the dropdown.");
+      return;
+    }
+
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      inputRef.current,
+      {
+        fields: ["geometry", "formatted_address", "name"],
+        // Optional: bias results to Canada
+        // componentRestrictions: { country: "ca" },
+      }
+    );
+
+    setHelp("Choose a suggestion from the dropdown.");
+
+    autocompleteRef.current.addListener("place_changed", () => {
+      const place = autocompleteRef.current.getPlace();
+      const loc = place?.geometry?.location;
+
+      if (!loc) {
+        setHelp("No geometry found—pick another suggestion.");
+        return;
+      }
+
+      props.onSelect({
+        lat: loc.lat(),
+        lon: loc.lng(),
+        label: place.formatted_address || place.name || undefined,
+      });
+
+      setHelp("Selected ✓");
+    });
+  }, [props.ready, props]);
+
+  return (
+    <div className="space-y-1">
+      <div className="text-sm font-medium">{props.label}</div>
+      <input
+        ref={inputRef}
+        className="w-full border rounded px-3 py-2"
+        placeholder={props.placeholder}
+        disabled={!props.ready}
+      />
+      <div className="text-xs text-zinc-500">{help}</div>
+    </div>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\planner\GoogleLoader.tsx
+// SOEN-343-Project\trip-planner\src\app\planner\GoogleLoader.tsx
+"use client";
+
+import { useEffect } from "react";
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+export default function GoogleLoader(props: {
+  onReady: (ready: boolean) => void;
+}) {
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+      console.error("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local");
+      props.onReady(false);
+      return;
+    }
+
+    // Already loaded with places
+    if (window.google?.maps?.places) {
+      props.onReady(true);
+      return;
+    }
+
+    const existing = document.querySelector(
+      'script[data-google-maps="1"]'
+    ) as HTMLScriptElement | null;
+
+    if (existing) {
+      existing.addEventListener("load", () => props.onReady(true));
+      existing.addEventListener("error", () => props.onReady(false));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleMaps = "1";
+
+    script.onload = () => props.onReady(true);
+    script.onerror = () => props.onReady(false);
+
+    document.head.appendChild(script);
+  }, [props]);
+
+  return null;
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\planner\MapPicker.tsx
+// SOEN-343-Project\trip-planner\src\app\planner\MapPicker.tsx
+"use client";
+
+import { useEffect, useRef } from "react";
+
+type LatLng = { lat: number; lon: number };
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+function loadGoogleMaps(apiKey: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.google?.maps) return resolve();
+
+    const existing = document.querySelector('script[data-google-maps="1"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google Maps")));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleMaps = "1";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+}
+
+export default function MapPicker(props: {
+  origin: LatLng | null;
+  destination: LatLng | null;
+  onPick: (which: "origin" | "destination", value: LatLng) => void;
+}) {
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+
+  const originMarkerRef = useRef<any>(null);
+  const destMarkerRef = useRef<any>(null);
+
+  // ✅ refs that always hold the latest props (avoids stale closure in click handler)
+  const originValueRef = useRef<LatLng | null>(null);
+  const destValueRef = useRef<LatLng | null>(null);
+
+  useEffect(() => {
+    originValueRef.current = props.origin;
+    destValueRef.current = props.destination;
+  }, [props.origin, props.destination]);
+
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return;
+
+    let cancelled = false;
+
+    (async () => {
+      await loadGoogleMaps(apiKey);
+      if (cancelled || !mapDivRef.current) return;
+
+      const center = { lat: 45.5019, lng: -73.5674 }; // Montreal
+      mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+        center,
+        zoom: 13,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+
+      mapRef.current.addListener("click", (e: any) => {
+        const lat = e.latLng.lat();
+        const lon = e.latLng.lng();
+
+        const hasOrigin = !!originValueRef.current;
+        const hasDestination = !!destValueRef.current;
+
+        // Click 1 -> origin, Click 2 -> destination, Click 3+ -> move destination
+        const which: "origin" | "destination" = !hasOrigin ? "origin" : "destination";
+
+        // Optional: if both already set, keep moving destination (feels natural)
+        // If you want to alternate instead, tell me and I'll adjust.
+        props.onPick(which, { lat, lon });
+
+        // If neither set, map will set origin. If origin exists, sets/moves destination.
+        // (You can reset to set a new origin.)
+      });
+    })().catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!window.google?.maps || !mapRef.current) return;
+
+    if (props.origin) {
+      if (!originMarkerRef.current) {
+        originMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          label: "A",
+        });
+      }
+      originMarkerRef.current.setPosition({ lat: props.origin.lat, lng: props.origin.lon });
+    } else if (originMarkerRef.current) {
+      originMarkerRef.current.setMap(null);
+      originMarkerRef.current = null;
+    }
+
+    if (props.destination) {
+      if (!destMarkerRef.current) {
+        destMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          label: "B",
+        });
+      }
+      destMarkerRef.current.setPosition({ lat: props.destination.lat, lng: props.destination.lon });
+    } else if (destMarkerRef.current) {
+      destMarkerRef.current.setMap(null);
+      destMarkerRef.current = null;
+    }
+  }, [props.origin, props.destination]);
+
+  return <div ref={mapDivRef} className="h-[420px] w-full rounded-lg border" />;
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\planner\MapPreview.tsx
+// SOEN-343-Project\trip-planner\src\app\planner\MapPreview.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type LatLon = { lat: number; lon: number };
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+function toLatLngLiteral(p: LatLon) {
+  return { lat: p.lat, lng: p.lon };
+}
+
+function stripHtml(html: string) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return div.textContent || div.innerText || "";
+}
+
+export default function MapPreview(props: {
+  ready: boolean;
+  origin: LatLon | null;
+  destination: LatLon | null;
+}) {
+  const divRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+
+  const originMarkerRef = useRef<any>(null);
+  const destMarkerRef = useRef<any>(null);
+
+  const dirServiceRef = useRef<any>(null);
+  const transitRendererRef = useRef<any>(null);
+
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [transitResult, setTransitResult] = useState<any>(null);
+
+  const canRoute = useMemo(() => !!props.origin && !!props.destination, [props.origin, props.destination]);
+
+  // init map once
+  useEffect(() => {
+    if (!props.ready) return;
+    if (!window.google?.maps) return;
+    if (!divRef.current) return;
+    if (mapRef.current) return;
+
+    const center = { lat: 45.5019, lng: -73.5674 }; // Montreal
+    mapRef.current = new window.google.maps.Map(divRef.current, {
+      center,
+      zoom: 12,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    dirServiceRef.current = new window.google.maps.DirectionsService();
+
+    transitRendererRef.current = new window.google.maps.DirectionsRenderer({
+      map: mapRef.current,
+      suppressMarkers: true,
+      preserveViewport: true,
+    });
+  }, [props.ready]);
+
+  // markers + fit bounds
+  useEffect(() => {
+    if (!props.ready || !mapRef.current || !window.google?.maps) return;
+
+    if (props.origin) {
+      if (!originMarkerRef.current) {
+        originMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          label: "A",
+        });
+      }
+      originMarkerRef.current.setPosition(toLatLngLiteral(props.origin));
+    } else if (originMarkerRef.current) {
+      originMarkerRef.current.setMap(null);
+      originMarkerRef.current = null;
+    }
+
+    if (props.destination) {
+      if (!destMarkerRef.current) {
+        destMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          label: "B",
+        });
+      }
+      destMarkerRef.current.setPosition(toLatLngLiteral(props.destination));
+    } else if (destMarkerRef.current) {
+      destMarkerRef.current.setMap(null);
+      destMarkerRef.current = null;
+    }
+
+    if (props.origin && props.destination) {
+      const bounds = new window.google.maps.LatLngBounds();
+      bounds.extend(toLatLngLiteral(props.origin));
+      bounds.extend(toLatLngLiteral(props.destination));
+      mapRef.current.fitBounds(bounds, 60);
+    }
+  }, [props.ready, props.origin, props.destination]);
+
+  // fetch transit route
+  useEffect(() => {
+    if (!props.ready) return;
+    if (!dirServiceRef.current) return;
+
+    setRouteError(null);
+    setTransitResult(null);
+
+    if (!props.origin || !props.destination) {
+      transitRendererRef.current?.setDirections({ routes: [] });
+      return;
+    }
+
+    const origin = toLatLngLiteral(props.origin);
+    const destination = toLatLngLiteral(props.destination);
+
+    dirServiceRef.current.route(
+      {
+        origin,
+        destination,
+        travelMode: window.google.maps.TravelMode.TRANSIT,
+        provideRouteAlternatives: true,
+      },
+      (result: any, status: any) => {
+        if (status === "OK" && result) {
+          setTransitResult(result);
+          transitRendererRef.current?.setDirections(result);
+          transitRendererRef.current?.setRouteIndex(0);
+        } else {
+          transitRendererRef.current?.setDirections({ routes: [] });
+          setRouteError(`Transit route error: ${status}`);
+        }
+      }
+    );
+  }, [props.ready, props.origin, props.destination]);
+
+  function firstLeg(result: any) {
+    return result?.routes?.[0]?.legs?.[0] ?? null;
+  }
+
+  const transitLeg = firstLeg(transitResult);
+
+  return (
+    <div className="space-y-3">
+      {routeError && (
+        <div className="text-xs text-red-600 border rounded p-2 bg-red-50">
+          {routeError}
+        </div>
+      )}
+
+      <div ref={divRef} className="h-[380px] w-full rounded-lg border" />
+
+      <div className="rounded border bg-white p-4 space-y-2">
+        <div className="font-medium">Transit route info</div>
+        {transitLeg ? (
+          <>
+            <div className="text-sm text-zinc-700">
+              {transitLeg.duration?.text} • {transitLeg.distance?.text}
+            </div>
+            <div className="text-sm text-zinc-600">
+              {transitLeg.departure_time?.text ? `Depart: ${transitLeg.departure_time.text}` : ""}
+              {transitLeg.arrival_time?.text ? ` · Arrive: ${transitLeg.arrival_time.text}` : ""}
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-zinc-600">—</div>
+        )}
+      </div>
+
+      {transitLeg?.steps?.length ? (
+        <div className="rounded border bg-white p-4 space-y-3">
+          <div className="font-medium">Transit steps</div>
+
+          <ol className="space-y-2">
+            {transitLeg.steps.map((step: any, i: number) => {
+              if (step.travel_mode === "TRANSIT" && step.transit) {
+                const t = step.transit;
+                const line = t.line;
+                const vehicle = line?.vehicle?.type ?? "TRANSIT";
+                const shortName = line?.short_name ?? line?.name ?? "";
+                const headsign = t.headsign ? ` → ${t.headsign}` : "";
+                const depStop = t.departure_stop?.name ?? "";
+                const arrStop = t.arrival_stop?.name ?? "";
+                const depTime = t.departure_time?.text ?? "";
+                const arrTime = t.arrival_time?.text ?? "";
+                const stops = t.num_stops != null ? ` (${t.num_stops} stops)` : "";
+
+                return (
+                  <li key={i} className="rounded border p-3">
+                    <div className="text-sm font-medium">
+                      {vehicle}: {shortName}
+                      {headsign}
+                    </div>
+                    <div className="text-sm text-zinc-600">
+                      {depStop} ({depTime}) → {arrStop} ({arrTime}){stops}
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-1">
+                      {step.duration?.text ? `Time: ${step.duration.text}` : ""}
+                      {step.distance?.text ? ` • Distance: ${step.distance.text}` : ""}
+                    </div>
+                  </li>
+                );
+              }
+
+              const instruction = step.instructions ? stripHtml(step.instructions) : "Walk";
+              return (
+                <li key={i} className="rounded border p-3">
+                  <div className="text-sm font-medium">{step.travel_mode}</div>
+                  <div className="text-sm text-zinc-600">
+                    {instruction}
+                    {step.distance?.text ? ` • ${step.distance.text}` : ""}
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-1">
+                    {step.duration?.text ? `Time: ${step.duration.text}` : ""}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\planner\page.tsx
+// SOEN-343-Project\trip-planner\src\app\planner\page.tsx
+"use client";
+
+import { useState } from "react";
+import GoogleLoader from "./GoogleLoader";
+import AddressPicker from "./AddressPicker";
+import MapPreview from "./MapPreview";
+
+type LatLon = { lat: number; lon: number; label?: string };
+
+type PlanResponse = {
+  tripId: string;
+  plan: any;
+};
+
+export default function PlannerPage() {
+  const [googleReady, setGoogleReady] = useState(false);
+
+  const [origin, setOrigin] = useState<LatLon | null>(null);
+  const [destination, setDestination] = useState<LatLon | null>(null);
+
+  const [data, setData] = useState<PlanResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  async function planTrip() {
+    if (!origin || !destination) return;
+
+    setLoading(true);
+    setData(null);
+
+    try {
+      const res = await fetch(`/api/trips/plan?t=${Date.now()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ origin, destination, mode: "transit" }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Plan API failed (${res.status}): ${text}`);
+      }
+
+      const json = (await res.json()) as PlanResponse;
+
+      // ✅ Proof in console: if this shows "transit", you're hitting the new route
+      console.log("PLAN RESPONSE:", json);
+
+      setData(json);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message ?? "Failed to plan trip");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-50 p-6">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Trip Planner (Transit)</h1>
+          <a className="underline text-sm text-zinc-600" href="/">
+            Home
+          </a>
+        </div>
+
+        <GoogleLoader
+          onReady={(ok) => {
+            setGoogleReady(ok);
+            setGoogleError(ok ? null : "Google Maps/Places failed to load.");
+          }}
+        />
+
+        {googleError && (
+          <div className="rounded border bg-white p-3 text-sm text-red-600">
+            {googleError}
+            <div className="mt-2 text-xs text-zinc-600">
+              Check: API key exists in <code>.env.local</code>, you restarted dev server, and both
+              “Maps JavaScript API” + “Places API” are enabled in Google Cloud.
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-lg border bg-white p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Enter addresses</h2>
+            <button
+              className="text-sm underline text-zinc-600"
+              type="button"
+              onClick={() => {
+                setOrigin(null);
+                setDestination(null);
+                setData(null);
+              }}
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <AddressPicker
+              label="Origin"
+              placeholder="e.g. McGill University"
+              onSelect={setOrigin}
+              ready={googleReady}
+            />
+            <AddressPicker
+              label="Destination"
+              placeholder="e.g. Old Montreal"
+              onSelect={setDestination}
+              ready={googleReady}
+            />
+          </div>
+
+          <MapPreview
+            ready={googleReady}
+            origin={origin ? { lat: origin.lat, lon: origin.lon } : null}
+            destination={destination ? { lat: destination.lat, lon: destination.lon } : null}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="rounded border p-3">
+              <div className="font-medium">Origin chosen</div>
+              <div className="text-zinc-600">
+                {origin?.label ??
+                  (origin ? `${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)}` : "Not set")}
+              </div>
+            </div>
+            <div className="rounded border p-3">
+              <div className="font-medium">Destination chosen</div>
+              <div className="text-zinc-600">
+                {destination?.label ??
+                  (destination
+                    ? `${destination.lat.toFixed(5)}, ${destination.lon.toFixed(5)}`
+                    : "Not set")}
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={planTrip}
+            disabled={loading || !origin || !destination}
+            className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
+          >
+            {loading ? "Planning..." : "Plan Trip"}
+          </button>
+        </div>
+
+        {data && (
+          <div className="rounded-lg border bg-white p-4 space-y-3">
+            <div className="text-sm text-zinc-500">Trip ID: {data.tripId}</div>
+
+            <details className="mt-2">
+              <summary className="cursor-pointer text-sm text-zinc-600">Show full JSON</summary>
+              <pre className="mt-2 bg-black text-green-300 p-3 rounded overflow-x-auto text-xs">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\rent\page.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import GoogleLoader from "../planner/GoogleLoader";
+import { useRouter } from "next/navigation";
+import type { GbfsStation } from "@/lib/providers/gbfs";
+
+type Row = GbfsStation;
+
+type BikeStatus = {
+  available: number | null;
+  reservation: null | {
+    id: string;
+    stationId: string;
+    stationName: string;
+    createdAt: string;
+  };
+  user: null | { id: string; email: string; name: string | null };
+};
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+function toLatLng(p: { lat: number; lon: number }) {
+  return { lat: p.lat, lng: p.lon };
+}
+
+export default function RentBikePage() {
+  const router = useRouter();
+
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loadingStations, setLoadingStations] = useState(true);
+  const [stationsErr, setStationsErr] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  const [bikeStatus, setBikeStatus] = useState<BikeStatus | null>(null);
+  const [reserveErr, setReserveErr] = useState<string | null>(null);
+  const [reserveBusy, setReserveBusy] = useState(false);
+
+  const [selected, setSelected] = useState<Row | null>(null);
+
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const didFitRef = useRef(false);
+
+  async function loadBikeStatus() {
+    const res = await fetch("/api/bikes/status", { cache: "no-store" });
+    const json = (await res.json()) as BikeStatus;
+    setBikeStatus(json);
+  }
+
+  async function loadStations() {
+    setLoadingStations(true);
+    setStationsErr(null);
+
+    try {
+      const res = await fetch("/api/bikes/stations", { cache: "no-store" });
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error ?? "Failed to load stations.");
+      }
+
+      const stations = (json?.stations ?? []) as Row[];
+      setRows(stations);
+
+      setSelected((prev) => {
+        if (!prev) return stations[0] ?? null;
+        return stations.find((s) => s.station_id === prev.station_id) ?? stations[0] ?? null;
+      });
+    } catch (e: any) {
+      setStationsErr(e?.message ?? "Failed to load stations.");
+    } finally {
+      setLoadingStations(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBikeStatus();
+    loadStations();
+  }, []);
+
+  async function reserveBike(stationId: string, stationName: string) {
+    setReserveBusy(true);
+    setReserveErr(null);
+
+    try {
+      const paymentUrl = `/payment?type=bike&stationId=${encodeURIComponent(
+        stationId
+      )}&stationName=${encodeURIComponent(stationName)}`;
+
+      router.push(paymentUrl);
+    } catch (e: any) {
+      setReserveErr(e?.message ?? "Failed to start bike checkout.");
+    } finally {
+      setReserveBusy(false);
+    }
+  }
+
+  async function returnBike() {
+    setReserveBusy(true);
+    setReserveErr(null);
+
+    try {
+      const res = await fetch("/api/bikes/return", {
+        method: "POST",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error ?? "Failed to return bike.");
+      }
+
+      await Promise.all([loadBikeStatus(), loadStations()]);
+    } catch (e: any) {
+      setReserveErr(e?.message ?? "Failed to return bike.");
+    } finally {
+      setReserveBusy(false);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+
+    return rows.filter((s) => {
+      return (
+        s.name.toLowerCase().includes(needle) ||
+        s.station_id.toLowerCase().includes(needle)
+      );
+    });
+  }, [rows, q]);
+
+  const loggedIn = !!bikeStatus?.user;
+  const hasReservation = !!bikeStatus?.reservation;
+
+  useEffect(() => {
+    if (!googleReady || !window.google?.maps || !mapDivRef.current || mapRef.current) return;
+
+    mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+      center: { lat: 45.5019, lng: -73.5674 },
+      zoom: 12,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+  }, [googleReady]);
+
+  useEffect(() => {
+    if (!googleReady || !mapRef.current || !window.google?.maps) return;
+
+    for (const m of markersRef.current) m.setMap(null);
+    markersRef.current = [];
+
+    for (const s of filtered) {
+      const marker = new window.google.maps.Marker({
+        map: mapRef.current,
+        position: toLatLng(s),
+        title: s.name,
+      });
+
+      marker.addListener("click", () => {
+        setSelected(s);
+        setReserveErr(null);
+        mapRef.current?.panTo(toLatLng(s));
+        const currentZoom = mapRef.current?.getZoom?.() ?? 12;
+        if (currentZoom < 15) mapRef.current?.setZoom?.(15);
+      });
+
+      markersRef.current.push(marker);
+    }
+
+    if (!didFitRef.current && q.trim() === "" && filtered.length > 0) {
+      const bounds = new window.google.maps.LatLngBounds();
+      for (const s of filtered) bounds.extend(toLatLng(s));
+      mapRef.current.fitBounds(bounds, 60);
+      didFitRef.current = true;
+    }
+  }, [googleReady, filtered, q]);
+
+  const selectedStationHasBike =
+    !!selected &&
+    selected.is_installed === 1 &&
+    selected.is_renting === 1 &&
+    (selected.bikes_available ?? 0) > 0;
+
+  const canReserveSelected =
+    !!selected &&
+    selectedStationHasBike &&
+    !hasReservation &&
+    !reserveBusy;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-[var(--brand-dark)]">
+          Reserve a Bike (BIXI)
+        </h1>
+      </div>
+
+      <GoogleLoader
+        onReady={(ok) => {
+          setGoogleReady(ok);
+          setGoogleError(ok ? null : "Google Maps/Places failed to load.");
+        }}
+      />
+
+      {googleError && (
+        <div className="rounded border bg-white p-3 text-sm text-red-600">
+          {googleError}
+        </div>
+      )}
+
+      <div className="rounded-xl border bg-white p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="text-sm text-zinc-600">Bike reservation status</div>
+
+            {!loggedIn ? (
+              <div className="text-sm text-zinc-600 mt-1">
+                You must log in to reserve a bike.
+              </div>
+            ) : hasReservation ? (
+              <div className="text-sm text-zinc-600 mt-1">
+                Your reservation:{" "}
+                <span className="font-medium text-[var(--brand-dark)]">
+                  {bikeStatus?.reservation?.stationName}
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-600 mt-1">No active reservation.</div>
+            )}
+          </div>
+
+          {loggedIn && hasReservation && (
+            <button
+              onClick={returnBike}
+              disabled={reserveBusy}
+              className="px-4 py-2 rounded-lg border bg-white hover:bg-zinc-50 transition disabled:opacity-50"
+            >
+              Return BIXI
+            </button>
+          )}
+        </div>
+
+        {reserveErr && <div className="mt-3 text-sm text-red-600">{reserveErr}</div>}
+      </div>
+
+      <div className="rounded-xl border bg-white p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-zinc-600">
+            {loadingStations
+              ? "Loading stations…"
+              : stationsErr
+              ? "Failed to load stations"
+              : `Showing ${filtered.length} / ${rows.length} stations`}
+          </div>
+
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search station…"
+            className="border rounded-lg px-3 py-2 text-sm w-full sm:w-[320px]"
+          />
+        </div>
+
+        {stationsErr && <div className="text-sm text-red-600">{stationsErr}</div>}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <div ref={mapDivRef} className="h-[60vh] lg:h-[520px] w-full rounded-xl border" />
+          </div>
+
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="rounded-xl border bg-[var(--brand-light)] p-4 h-[520px] overflow-auto">
+              <div className="font-medium mb-2">Details</div>
+
+              {!selected ? (
+                <div className="text-sm text-zinc-600">
+                  Click a station marker to view details.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-lg font-semibold">{selected.name}</div>
+                    <div className="text-sm text-zinc-700">
+                      Bikes: <span className="font-medium">{selected.bikes_available}</span> ·
+                      Docks: <span className="font-medium">{selected.docks_available}</span>
+                    </div>
+                    <div className="text-xs text-zinc-600 mt-1">
+                      {selected.is_installed ? "Installed" : "Not installed"} ·{" "}
+                      {selected.is_renting ? "Renting" : "Not renting"} ·{" "}
+                      {selected.is_returning ? "Returning" : "Not returning"}
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={!canReserveSelected}
+                    onClick={() => reserveBike(selected.station_id, selected.name)}
+                    className="w-full px-4 py-2 rounded-lg text-white bg-[var(--brand-green)] hover:opacity-90 transition disabled:opacity-50"
+                  >
+                    {!selectedStationHasBike
+                      ? "No bikes here"
+                      : hasReservation
+                      ? "Already reserved"
+                      : reserveBusy
+                      ? "Loading…"
+                      : "Reserve"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-zinc-900">
+            <thead className="text-left text-zinc-600 border-b">
+              <tr>
+                <th className="py-2">Station</th>
+                <th className="py-2">Bikes</th>
+                <th className="py-2">Docks</th>
+                <th className="py-2">Status</th>
+                <th className="py-2 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s) => {
+                const stationHasBike =
+                  s.is_installed === 1 && s.is_renting === 1 && (s.bikes_available ?? 0) > 0;
+
+                const canReserve = stationHasBike && !hasReservation && !reserveBusy;
+
+                return (
+                  <tr
+                    key={s.station_id}
+                    className={`border-b ${
+                      selected?.station_id === s.station_id ? "bg-zinc-50" : ""
+                    }`}
+                    onClick={() => setSelected(s)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td className="py-2 font-medium">{s.name}</td>
+                    <td className="py-2">{s.bikes_available}</td>
+                    <td className="py-2">{s.docks_available}</td>
+                    <td className="py-2 text-xs text-zinc-600">
+                      {s.is_installed ? "Installed" : "Not installed"} ·{" "}
+                      {s.is_renting ? "Renting" : "Not renting"} ·{" "}
+                      {s.is_returning ? "Returning" : "Not returning"}
+                    </td>
+                    <td className="py-2 text-right">
+                      <button
+                        disabled={!canReserve}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reserveBike(s.station_id, s.name);
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-white bg-[var(--brand-green)] hover:opacity-90 transition disabled:opacity-40"
+                      >
+                        {stationHasBike
+                          ? hasReservation
+                            ? "Already reserved"
+                            : reserveBusy
+                            ? "Loading…"
+                            : "Reserve"
+                          : "No bikes"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="mt-3 text-xs text-zinc-500">
+            Showing {filtered.length} / {rows.length} stations
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={`lg:hidden fixed left-0 right-0 bottom-0 z-50 transition-transform duration-200 ${
+          selected ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <div className="mx-auto max-w-6xl px-4 pb-4">
+          <div className="rounded-2xl border bg-white shadow-lg p-4 max-h-[50vh] overflow-auto">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm text-zinc-500">Station details</div>
+                <div className="text-lg font-semibold break-words">{selected?.name}</div>
+                {selected && (
+                  <div className="text-sm text-zinc-700 mt-1">
+                    Bikes: <span className="font-medium">{selected.bikes_available}</span> ·
+                    Docks: <span className="font-medium">{selected.docks_available}</span>
+                  </div>
+                )}
+              </div>
+              <button
+                className="px-3 py-1 rounded-lg border bg-white"
+                onClick={() => setSelected(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <button
+              disabled={!canReserveSelected}
+              onClick={() => selected && reserveBike(selected.station_id, selected.name)}
+              className="mt-3 w-full px-4 py-2 rounded-lg text-white bg-[var(--brand-green)] hover:opacity-90 transition disabled:opacity-50"
+            >
+              {!selectedStationHasBike
+                ? "No bikes here"
+                : hasReservation
+                ? "Already reserved"
+                : reserveBusy
+                ? "Loading…"
+                : "Reserve"}
+            </button>
+
+            {reserveErr && <div className="mt-2 text-sm text-red-600">{reserveErr}</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\layout.tsx
+// SOEN-343-Project\trip-planner\src\app\layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import NavBar from "@/components/NavBar";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "CityCircuit",
+  description: "Map it. Book it. Ride it.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en" className="bg-[var(--brand-light)]">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[var(--brand-light)] text-[var(--brand-dark)]`}
+      >
+        <NavBar />
+        <main className="mx-auto max-w-6xl px-6 py-10">{children}</main>
+      </body>
+    </html>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\app\page.tsx
+// SOEN-343-Project\trip-planner\src\app\page.tsx
+import Image from "next/image";
+import Link from "next/link";
+
+export default function Home() {
+  return (
+    <div className="flex min-h-[calc(100vh-140px)] items-center justify-center">
+      <div className="w-full max-w-3xl text-center">
+        <div className="rounded-2xl border bg-white shadow-sm p-8 sm:p-10">
+          <div className="flex justify-center">
+            <Image
+              src="/logo.png"
+              alt="CityCircuit"
+              width={520}
+              height={520}
+              priority
+              className="h-auto w-full max-w-md"
+            />
+          </div>
+
+          <p className="mt-6 text-zinc-600">
+            Plan transit trips and reserve bikes in one place.
+          </p>
+
+          <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/planner"
+              className="px-6 py-3 rounded-lg bg-[var(--brand-blue)] text-white hover:opacity-90 transition font-semibold"
+            >
+              Plan a Trip
+            </Link>
+
+            <Link
+              href="/rent"
+              className="px-6 py-3 rounded-lg bg-[var(--brand-green)] text-white hover:opacity-90 transition font-semibold"
+            >
+              Reserve a Bike
+            </Link>
+          </div>
+        </div>
+
+        <p className="mt-6 text-sm text-zinc-500">
+          Map it. Book it. Ride it.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\components\NavBar.tsx
+// src/components/NavBar.tsx
+import Link from "next/link";
+import { getSessionUser } from "@/lib/auth";
+import UserMenu from "@/components/UserMenu";
+
+export default async function NavBar() {
+  const user = await getSessionUser();
+
+  const isApprovedAdmin =
+    user?.role === "ADMIN" && user?.status === "APPROVED";
+
+  return (
+    <header className="sticky top-0 z-50 border-b bg-white">
+      <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <Link href="/" className="font-semibold tracking-tight text-lg">
+            <span className="text-[var(--brand-blue)]">City</span>
+            <span className="text-[var(--brand-green)]">Circuit</span>
+          </Link>
+
+          <nav className="flex items-center gap-4 text-sm font-medium">
+            <Link
+              href="/planner"
+              className="text-[var(--brand-blue)] hover:opacity-80 transition"
+            >
+              Plan a Trip
+            </Link>
+
+            <Link
+              href="/rent"
+              className="text-[var(--brand-green)] hover:opacity-80 transition"
+            >
+              Bixi
+            </Link>
+
+            <Link
+              href="/parking"
+              className="text-[var(--brand-dark)] hover:opacity-80 transition"
+            >
+              Parking
+            </Link>
+
+            {isApprovedAdmin && (
+              <>
+                <Link
+                  href="/admin"
+                  className="text-[var(--brand-dark)] hover:opacity-80 transition"
+                >
+                  Admin
+                </Link>
+
+                <Link
+                  href="/admin/vehicles"
+                  className="text-[var(--brand-dark)] hover:opacity-80 transition"
+                >
+                  Vehicles
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+
+        <UserMenu user={user} />
+      </div>
+    </header>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\components\UserMenu.tsx
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type SessionUser =
+  | {
+      id: string;
+      email: string;
+      name?: string | null;
+      role: "USER" | "ADMIN";
+      status: "PENDING" | "APPROVED" | "REJECTED";
+    }
+  | null;
+
+export default function UserMenu({ user }: { user: SessionUser }) {
+  const router = useRouter();
+
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const displayName = user?.name ?? user?.email ?? "Account";
+  const initial = user ? displayName.slice(0, 1).toUpperCase() : "?";
+
+  async function logout() {
+    if (busy) return;
+    setBusy(true);
+
+    try {
+      await fetch("/api/auth/logout", { method: "POST", cache: "no-store" });
+    } finally {
+      setBusy(false);
+      setOpen(false);
+      // ✅ force server components (NavBar) to re-read cookies
+      router.replace("/");
+      router.refresh();
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 hover:bg-zinc-50 transition"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-blue)] text-white text-sm font-semibold">
+          {initial}
+        </span>
+
+        <span className="text-sm text-[var(--brand-dark)] hidden sm:block max-w-[180px] truncate">
+          {user ? displayName : "Sign in"}
+        </span>
+
+        <span className="text-zinc-500 text-xs">▾</span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 mt-2 w-56 rounded-lg border bg-white shadow-sm overflow-hidden"
+          role="menu"
+        >
+          {!user ? (
+            <div className="p-2 grid gap-1">
+              <Link
+                href="/auth/login"
+                className="rounded px-3 py-2 text-sm hover:bg-zinc-50 transition"
+                onClick={() => setOpen(false)}
+              >
+                Login
+              </Link>
+              <Link
+                href="/auth/register"
+                className="rounded px-3 py-2 text-sm hover:bg-zinc-50 transition"
+                onClick={() => setOpen(false)}
+              >
+                Create account
+              </Link>
+            </div>
+          ) : (
+            <div className="p-2">
+              <div className="px-3 py-2 text-sm text-zinc-700">
+                Signed in as
+                <div className="font-medium text-[var(--brand-dark)] truncate">
+                  {displayName}
+                </div>
+              </div>
+
+              <Link
+                href="/orders"
+                className="block rounded px-3 py-2 text-sm hover:bg-zinc-50 transition"
+                onClick={() => setOpen(false)}
+              >
+                My Orders
+              </Link>
+
+              <div className="my-1 h-px bg-zinc-100" />
+
+              <button
+                type="button"
+                onClick={logout}
+                disabled={busy}
+                className="w-full text-left block rounded px-3 py-2 text-sm hover:bg-zinc-50 transition text-[var(--brand-dark)] disabled:opacity-50"
+              >
+                {busy ? "Logging out…" : "Logout"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\commands\ReservationCommand.ts
+// src/lib/commands/ReservationCommand.ts
+// PATTERN: Command
+// Each reservation type (bike, parking) is encapsulated as a Command object
+// with execute() and undo() methods. This pairs the reserve and cancel operations
+// that conceptually belong together, and makes it easy to add audit logging,
+// queuing, or undo history in the future.
+
+import { prisma } from "@/lib/prisma";
+import { OrderFactory } from "@/lib/orders";
+
+export interface ReservationCommand {
+  execute(): Promise<{ ok: boolean; error?: string; orderId?: string }>;
+  undo(): Promise<{ ok: boolean; error?: string }>;
+}
+
+// ---------------------------------------------------------------------------
+// BikeReservationCommand
+// ---------------------------------------------------------------------------
+
+type BikeCommandOptions = {
+  userId: string;
+  stationId: string;
+  stationName: string;
+};
+
+export class BikeReservationCommand implements ReservationCommand {
+  constructor(private opts: BikeCommandOptions) {}
+
+  async execute() {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Ensure stock row exists
+        const existingStock = await tx.bikeStock.findUnique({ where: { id: "default" } });
+        if (!existingStock) {
+          await tx.bikeStock.create({ data: { id: "default", available: 20 } });
+        }
+
+        const existing = await tx.bikeReservation.findUnique({
+          where: { userId: this.opts.userId },
+        });
+        if (existing) throw new Error("You already have a bike reserved.");
+
+        const stock = await tx.bikeStock.findUnique({ where: { id: "default" } });
+        if (!stock || stock.available <= 0) {
+          throw new Error("No reservable bikes available right now.");
+        }
+
+        const reservation = await tx.bikeReservation.create({
+          data: {
+            userId: this.opts.userId,
+            stationId: this.opts.stationId,
+            stationName: this.opts.stationName,
+          },
+        });
+
+        await tx.bikeStock.update({
+          where: { id: "default" },
+          data: { available: { decrement: 1 } },
+        });
+
+        // Use OrderFactory to build the order payload
+        const orderData = OrderFactory.createBikeOrder(this.opts.userId, {
+          reservationId: reservation.id,
+          stationId: this.opts.stationId,
+          stationName: this.opts.stationName,
+        });
+
+        const order = await tx.mockOrder.create({
+          data: orderData,
+          select: { id: true },
+        });
+
+        return order;
+      });
+
+      return { ok: true, orderId: result.id };
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? "Bike reservation failed." };
+    }
+  }
+
+  async undo() {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.bikeReservation.findUnique({
+          where: { userId: this.opts.userId },
+        });
+        if (!existing) throw new Error("No reservation found.");
+
+        await tx.bikeReservation.delete({ where: { userId: this.opts.userId } });
+        await tx.bikeStock.update({
+          where: { id: "default" },
+          data: { available: { increment: 1 } },
+        });
+      });
+
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? "Cancel failed." };
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ParkingReservationCommand
+// ---------------------------------------------------------------------------
+
+type ParkingCommandOptions = {
+  userId: string;
+  parkingId: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lon: number;
+};
+
+export class ParkingReservationCommand implements ReservationCommand {
+  constructor(private opts: ParkingCommandOptions) {}
+
+  async execute() {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.parkingReservation.findUnique({
+          where: { userId: this.opts.userId },
+        });
+        if (existing) throw new Error("You already have an active parking reservation.");
+
+        const reservation = await tx.parkingReservation.create({
+          data: {
+            userId: this.opts.userId,
+            parkingId: this.opts.parkingId,
+            name: this.opts.name,
+            address: this.opts.address ?? "",
+            lat: this.opts.lat,
+            lon: this.opts.lon,
+          },
+        });
+
+        // Use OrderFactory to build the order payload
+        const orderData = OrderFactory.createParkingOrder(this.opts.userId, {
+          reservationId: reservation.id,
+          parkingId: this.opts.parkingId,
+          name: this.opts.name,
+          address: this.opts.address,
+          lat: this.opts.lat,
+          lon: this.opts.lon,
+        });
+
+        const order = await tx.mockOrder.create({
+          data: orderData,
+          select: { id: true },
+        });
+
+        return order;
+      });
+
+      return { ok: true, orderId: result.id };
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? "Parking reservation failed." };
+    }
+  }
+
+  async undo() {
+    try {
+      const existing = await prisma.parkingReservation.findUnique({
+        where: { userId: this.opts.userId },
+        select: { id: true },
+      });
+
+      if (!existing) return { ok: true }; // nothing to undo
+
+      await prisma.parkingReservation.delete({ where: { userId: this.opts.userId } });
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? "Cancel failed." };
+    }
+  }
+}
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\providers\gbfs.ts
+// SOEN-343-Project/trip-planner/src/lib/providers/gbfs.ts
+
+export type GbfsStation = {
+  station_id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  capacity?: number;
+
+  bikes_available?: number;
+  docks_available?: number;
+
+  is_installed?: number;
+  is_renting?: number;
+  is_returning?: number;
+  last_reported?: number;
+};
+
+const GBFS_INDEX_URL = "https://gbfs.velobixi.com/gbfs/2-2/gbfs.json";
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { next: { revalidate: 15 } }); // cache a bit on server
+  if (!res.ok) throw new Error(`GBFS fetch failed: ${res.status} ${url}`);
+  return res.json() as Promise<T>;
+}
+
+function asNumber(v: any): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+function sumTypedBikes(typed: any): number | undefined {
+  // GBFS typed availability varies by operator; handle common patterns
+  // Examples:
+  // - { mechanical: 3, ebike: 2 }
+  // - { mechanical: 3, electric: 2 }
+  // - { "1": 3, "2": 2 }
+  if (!typed || typeof typed !== "object") return undefined;
+
+  let sum = 0;
+  let sawNumber = false;
+
+  for (const k of Object.keys(typed)) {
+    const n = asNumber(typed[k]);
+    if (typeof n === "number") {
+      sum += n;
+      sawNumber = true;
+    }
+  }
+
+  return sawNumber ? sum : undefined;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+// Deterministic pseudo-random number based on a string (station_id)
+// so “fake” availability stays stable across reloads.
+function hash01(s: string): number {
+  let h = 2166136261; // FNV-1a-ish
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // convert to [0,1)
+  return ((h >>> 0) % 10000) / 10000;
+}
+
+function inferAvailabilityFromCapacity(stationId: string, capacity?: number) {
+  const cap = typeof capacity === "number" && capacity > 0 ? capacity : 20;
+  // pick a stable ratio between ~25% and ~75%
+  const r = 0.25 + hash01(stationId) * 0.5;
+  const bikes = clamp(Math.round(cap * r), 0, cap);
+  const docks = clamp(cap - bikes, 0, cap);
+  return { bikes, docks, cap };
+}
+
+function extractBikes(st: any, stationId: string, capacity?: number): number {
+  // Common GBFS fields:
+  // - num_bikes_available
+  // - num_bikes_available_types (object)
+  // Some operators also put "num_bikes_available" inside nested structures.
+  const direct = asNumber(st?.num_bikes_available);
+  if (typeof direct === "number") return direct;
+
+  const typed =
+    sumTypedBikes(st?.num_bikes_available_types) ??
+    sumTypedBikes(st?.num_bikes_available_by_type) ??
+    sumTypedBikes(st?.num_bikes_available_type);
+
+  if (typeof typed === "number") return typed;
+
+  // If still missing, fake from capacity
+  return inferAvailabilityFromCapacity(stationId, capacity).bikes;
+}
+
+function extractDocks(st: any, stationId: string, capacity?: number): number {
+  // Common GBFS fields:
+  // - num_docks_available
+  // - num_docks_available_types (rare)
+  const direct = asNumber(st?.num_docks_available);
+  if (typeof direct === "number") return direct;
+
+  const typed =
+    sumTypedBikes(st?.num_docks_available_types) ??
+    sumTypedBikes(st?.num_docks_available_by_type);
+
+  if (typeof typed === "number") return typed;
+
+  // If missing, fake from capacity (cap - bikes)
+  const { bikes, cap } = inferAvailabilityFromCapacity(stationId, capacity);
+  return clamp(cap - bikes, 0, cap);
+}
+
+export async function getBixiStationsMerged(): Promise<GbfsStation[]> {
+  // 1) Load gbfs.json and find station_information + station_status URLs
+  const index = await fetchJson<any>(GBFS_INDEX_URL);
+
+  const feeds = index?.data?.en?.feeds ?? index?.data?.fr?.feeds ?? [];
+  const infoUrl = feeds.find((f: any) => f.name === "station_information")?.url;
+  const statusUrl = feeds.find((f: any) => f.name === "station_status")?.url;
+
+  if (!infoUrl || !statusUrl) {
+    throw new Error("GBFS index did not include station_information/station_status");
+  }
+
+  // 2) Fetch both and merge by station_id
+  const [info, status] = await Promise.all([fetchJson<any>(infoUrl), fetchJson<any>(statusUrl)]);
+
+  const infoById = new Map<string, any>();
+  for (const s of info?.data?.stations ?? []) infoById.set(String(s.station_id), s);
+
+  const merged: GbfsStation[] = [];
+  for (const raw of status?.data?.stations ?? []) {
+    const station_id = String(raw.station_id);
+    const si = infoById.get(station_id);
+    if (!si) continue;
+
+    const capacity = asNumber(si.capacity);
+    const bikes = extractBikes(raw, station_id, capacity);
+    const docks = extractDocks(raw, station_id, capacity);
+
+    merged.push({
+      station_id,
+      name: si.name,
+      lat: si.lat,
+      lon: si.lon,
+      capacity,
+
+      bikes_available: bikes,
+      docks_available: docks,
+
+      is_installed: asNumber(raw.is_installed),
+      is_renting: asNumber(raw.is_renting),
+      is_returning: asNumber(raw.is_returning),
+      last_reported: asNumber(raw.last_reported),
+    });
+  }
+
+  return merged;
+}
+
+// Simple nearest-station helper (good enough for a project)
+export function nearestStations(
+  stations: GbfsStation[],
+  lat: number,
+  lon: number,
+  k = 3,
+  opts?: { requireBikes?: boolean; requireDocks?: boolean }
+): GbfsStation[] {
+  const requireBikes = opts?.requireBikes ?? false;
+  const requireDocks = opts?.requireDocks ?? false;
+
+  const filtered = stations.filter((s) => {
+    if (requireBikes && (s.bikes_available ?? 0) <= 0) return false;
+    if (requireDocks && (s.docks_available ?? 0) <= 0) return false;
+    return true;
+  });
+
+  function dist2(aLat: number, aLon: number) {
+    const dLat = aLat - lat;
+    const dLon = aLon - lon;
+    return dLat * dLat + dLon * dLon;
+  }
+
+  return filtered
+    .sort((a, b) => dist2(a.lat, a.lon) - dist2(b.lat, b.lon))
+    .slice(0, k);
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\providers\stm.ts
+// Phase 1: stub interfaces so your app compiles.
+// Phase 2: wire GTFS / GTFS-RT once you have STM portal access details.
+
+export type StmRealtime = unknown
+  // TODO: fill later: vehicle positions, trip updates, occupancy, etc.
+
+
+export async function getStmRealtime(): Promise<StmRealtime> {
+  // TODO: connect to STM GTFS-realtime / API i3 from STM developer portal.
+  // STM access typically requires registration and credentials.
+  return {};
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\auth.ts
+// SOEN-343-Project\trip-planner\src\lib\auth.ts
+import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
+
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: "USER" | "ADMIN";
+  status: "PENDING" | "APPROVED" | "REJECTED";
+};
+
+/**
+ * session cookie stores USER ID directly
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const userId = cookieStore.get("session")?.value;
+
+  if (!userId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name ?? null,
+    role: user.role,
+    status: user.status,
+  };
+}
+
+export async function requireUser(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user) throw new Error("UNAUTHORIZED");
+  return user;
+}
+
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+
+  if (user.role !== "ADMIN") throw new Error("FORBIDDEN");
+  if (user.status !== "APPROVED") throw new Error("ADMIN_NOT_APPROVED");
+
+  return user;
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\orders.ts
+// src/lib/orders.ts
+// PATTERN: Factory
+// OrderFactory centralizes the creation of MockOrder data objects.
+// Instead of constructing order payloads inline across multiple route handlers,
+// all order creation goes through this factory, ensuring consistent structure,
+// pricing, and serialization.
+
+export type OrderType = "bike" | "parking";
+
+export type OrderPayload = {
+  userId: string;
+  type: OrderType;
+  priceCents: number;
+  status: string;
+  detailsJson: string;
+};
+
+export type BikeOrderDetails = {
+  reservationId?: string;
+  stationId: string;
+  stationName: string;
+};
+
+export type ParkingOrderDetails = {
+  reservationId?: string;
+  parkingId: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lon: number;
+};
+
+export class OrderFactory {
+  /**
+   * Creates the data payload for a bike reservation order.
+   * Price is fixed at $4.99.
+   */
+  static createBikeOrder(userId: string, details: BikeOrderDetails): OrderPayload {
+    return {
+      userId,
+      type: "bike",
+      priceCents: 499,
+      status: "PAID",
+      detailsJson: JSON.stringify(details),
+    };
+  }
+
+  /**
+   * Creates the data payload for a parking reservation order.
+   * Price is fixed at $12.99.
+   */
+  static createParkingOrder(userId: string, details: ParkingOrderDetails): OrderPayload {
+    return {
+      userId,
+      type: "parking",
+      priceCents: 1299,
+      status: "PAID",
+      detailsJson: JSON.stringify(details),
+    };
+  }
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\password.ts
+import crypto from "crypto";
+
+export function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto
+    .pbkdf2Sync(password, salt, 150_000, 32, "sha256")
+    .toString("hex");
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, stored: string) {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+
+  const computed = crypto
+    .pbkdf2Sync(password, salt, 150_000, 32, "sha256")
+    .toString("hex");
+
+  return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(computed, "hex"));
+}
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\prisma.ts
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ["error", "warn"],
+  });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+
+
+// FILE: C:\Users\antho\Desktop\Workspace\SOEN-343-Project\trip-planner\src\lib\withAuth.ts
+// src/lib/withAuth.ts
+// PATTERN: Decorator
+// withAuth and withAdmin are higher-order function decorators that wrap route
+// handlers. Each decorator adds a behaviour (auth check, admin check) without
+// modifying the handler itself. They compose — withAdmin wraps withAuth —
+// exactly like classic decorator layering.
+
+import { NextResponse } from "next/server";
+import { getSessionUser, SessionUser } from "@/lib/auth";
+
+type RouteHandler = (req: Request, user: SessionUser) => Promise<Response>;
+type WrappedHandler = (req: Request) => Promise<Response>;
+
+/**
+ * Decorator: requires a logged-in user of any role.
+ * Injects the resolved SessionUser into the handler so it never needs
+ * to call getSessionUser() itself.
+ */
+export function withAuth(handler: RouteHandler): WrappedHandler {
+  return async (req: Request) => {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    return handler(req, user);
+  };
+}
+
+/**
+ * Decorator: requires an approved admin.
+ * Composes on top of withAuth — if the user isn't logged in, withAuth
+ * rejects first. If they are logged in but not an approved admin, this
+ * decorator rejects.
+ */
+export function withAdmin(handler: RouteHandler): WrappedHandler {
+  return withAuth(async (req, user) => {
+    if (user.role !== "ADMIN" || user.status !== "APPROVED") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return handler(req, user);
+  });
+}
+
+

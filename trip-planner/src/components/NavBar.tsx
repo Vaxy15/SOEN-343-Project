@@ -1,4 +1,4 @@
-// SOEN-343-Project\trip-planner\src\components\NavBar.tsx
+// src/components/NavBar.tsx
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import UserMenu from "@/components/UserMenu";
@@ -23,29 +23,39 @@ export default async function NavBar() {
               href="/planner"
               className="text-[var(--brand-blue)] hover:opacity-80 transition"
             >
-              Transit
+              Plan a Trip
             </Link>
 
             <Link
               href="/rent"
               className="text-[var(--brand-green)] hover:opacity-80 transition"
             >
-              Reserve
+              Bixi
             </Link>
+
             <Link
-                href="/parking"
-                className="text-[var(--brand-dark)] hover:opacity-80 transition"
-              >
-                Parking
+              href="/parking"
+              className="text-[var(--brand-dark)] hover:opacity-80 transition"
+            >
+              Parking
             </Link>
 
             {isApprovedAdmin && (
-              <Link
-                href="/admin"
-                className="text-[var(--brand-dark)] hover:opacity-80 transition"
-              >
-                Admin
-              </Link>
+              <>
+                <Link
+                  href="/admin"
+                  className="text-[var(--brand-dark)] hover:opacity-80 transition"
+                >
+                  Admin
+                </Link>
+
+                <Link
+                  href="/admin/vehicles"
+                  className="text-[var(--brand-dark)] hover:opacity-80 transition"
+                >
+                  Vehicles
+                </Link>
+              </>
             )}
           </nav>
         </div>

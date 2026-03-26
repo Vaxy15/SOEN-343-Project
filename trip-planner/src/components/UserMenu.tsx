@@ -107,6 +107,14 @@ export default function UserMenu({ user }: { user: SessionUser }) {
                 </div>
               </div>
 
+              <Link
+                href="/orders"
+                className="block rounded px-3 py-2 text-sm hover:bg-zinc-50 transition"
+                onClick={() => setOpen(false)}
+              >
+                My Orders
+              </Link>
+
               <div className="my-1 h-px bg-zinc-100" />
 
               <button

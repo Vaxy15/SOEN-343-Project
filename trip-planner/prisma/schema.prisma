@@ -1,3 +1,4 @@
+// SOEN-343-Project\trip-planner\prisma\schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -19,6 +20,10 @@ model TripPlan {
 model MockOrder {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   type        String
   priceCents  Int
   status      String
@@ -45,19 +50,20 @@ enum AccountStatus {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  name         String
-  passwordHash String
-  role         Role          @default(USER)
-  status       AccountStatus @default(APPROVED)
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  name               String
+  passwordHash       String
+  role               Role                @default(USER)
+  status             AccountStatus       @default(APPROVED)
 
-  sessions     Session[]
-  reservation  BikeReservation?
+  sessions           Session[]
+  reservation        BikeReservation?
   parkingReservation ParkingReservation?
+  orders             MockOrder[]
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model Session {
@@ -68,38 +74,21 @@ model Session {
   createdAt DateTime @default(now())
 }
 
-/**
- * Global stock counter (singleton row).
- * We keep it simple for class project scope: total available reservable bikes.
- */
-model BikeStock {
-  id        String   @id // "default"
-  available Int      @default(20)
-  updatedAt DateTime @updatedAt
-}
-
-/**
- * Max 1 bike per user: enforced by unique userId.
- * When user cancels, we delete the row (so they can reserve again).
- */
 model BikeReservation {
   id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   stationId   String
   stationName String
-
-  createdAt   DateTime @default(now())
 }
 
-/**
- * Parking reservation:
- * Max 1 parking reservation per user (simple scope like BikeReservation).
- * We keep it persistent for admin analytics.
- */
 model ParkingReservation {
   id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -108,6 +97,25 @@ model ParkingReservation {
   address   String
   lat       Float
   lon       Float
+}
 
-  createdAt DateTime @default(now())
+model BikeStock {
+  id        String   @id
+  available Int
+  updatedAt DateTime @updatedAt
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("BIKE")
+  provider    String?
+  stationId   String?
+  stationName String?
+  lat         Float?
+  lon         Float?
+  available   Int      @default(0)
+  status      String   @default("ACTIVE") // ACTIVE, MAINTENANCE, INACTIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

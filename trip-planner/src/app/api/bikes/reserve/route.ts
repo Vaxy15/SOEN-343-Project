@@ -1,18 +1,8 @@
-// SOEN-343-Project\trip-planner\src\app\api\bikes\reserve\route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 
 type Body = { stationId: string; stationName: string };
-
-async function ensureStockRow() {
-  const existing = await prisma.bikeStock.findUnique({ where: { id: "default" } });
-  if (existing) return existing;
-
-  return prisma.bikeStock.create({
-    data: { id: "default", available: 20 },
-  });
-}
 
 export async function POST(req: Request) {
   try {
@@ -23,30 +13,61 @@ export async function POST(req: Request) {
     const stationName = String(body.stationName ?? "").trim();
 
     if (!stationId || !stationName) {
-      return NextResponse.json({ error: "stationId and stationName are required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "stationId and stationName are required." },
+        { status: 400 }
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      await ensureStockRow();
-
       const existing = await tx.bikeReservation.findUnique({
         where: { userId: user.id },
       });
 
       if (existing) {
-        return { ok: false as const, status: 409, error: "You already have a bike reserved (max 1)." };
+        return {
+          ok: false as const,
+          status: 409,
+          error: "You already have a bike reserved (max 1).",
+        };
       }
 
-      const stock = await tx.bikeStock.findUnique({ where: { id: "default" } });
-      if (!stock || stock.available <= 0) {
-        return { ok: false as const, status: 409, error: "No reservable bikes available right now." };
-      }
-
-      await tx.bikeStock.update({
-        where: { id: "default" },
-        data: { available: { decrement: 1 } },
+      const customStationVehicle = await tx.vehicle.findFirst({
+        where: {
+          type: "BIKE",
+          status: "ACTIVE",
+          stationId,
+        },
+        orderBy: { createdAt: "asc" },
       });
 
+      if (customStationVehicle) {
+        if ((customStationVehicle.available ?? 0) <= 0) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: "No reservable bikes available at this station.",
+          };
+        }
+
+        await tx.vehicle.update({
+          where: { id: customStationVehicle.id },
+          data: { available: { decrement: 1 } },
+        });
+
+        const reservation = await tx.bikeReservation.create({
+          data: {
+            userId: user.id,
+            stationId,
+            stationName,
+          },
+          select: { id: true, stationId: true, stationName: true, createdAt: true },
+        });
+
+        return { ok: true as const, reservation };
+      }
+
+      // Fallback for regular external BIXI stations already shown on the map.
       const reservation = await tx.bikeReservation.create({
         data: {
           userId: user.id,

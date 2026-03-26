@@ -1,7 +1,10 @@
-// SOEN-343-Project\trip-planner\src\app\api\parking\cancel.ts\route.ts
+// src/app/api/parking/cancel/route.ts
+// PATTERN: Command
+// Cancel is command.undo() — symmetric with execute() in the reserve flow.
+
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
+import { ParkingReservationCommand } from "@/lib/commands/ReservationCommand";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,18 +15,20 @@ export async function POST() {
     return NextResponse.json({ error: "LOGIN_REQUIRED" }, { status: 401 });
   }
 
-  const existing = await prisma.parkingReservation.findUnique({
-    where: { userId: user.id },
-    select: { id: true },
+  // stationId/name/coords not needed for undo (cancel looks up by userId)
+  const command = new ParkingReservationCommand({
+    userId: user.id,
+    parkingId: "",
+    name: "",
+    lat: 0,
+    lon: 0,
   });
 
-  if (!existing) {
-    return NextResponse.json({ ok: true, deleted: false });
+  const result = await command.undo();
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
-  await prisma.parkingReservation.delete({
-    where: { userId: user.id },
-  });
-
-  return NextResponse.json({ ok: true, deleted: true });
+  return NextResponse.json({ ok: true });
 }
