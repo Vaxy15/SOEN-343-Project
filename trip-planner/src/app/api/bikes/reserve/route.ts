@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
+import { requireUser } from "@/lib/technical-services/security/session";
 
 type Body = { stationId: string; stationName: string };
 

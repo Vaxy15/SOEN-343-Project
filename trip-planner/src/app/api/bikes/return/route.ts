@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
-import { BikeReservationCommand } from "@/lib/commands/ReservationCommand";
+import { requireUser } from "@/lib/technical-services/security/session";
+import { BikeReservationCommand } from "@/lib/technical-services/commands/ReservationCommand";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

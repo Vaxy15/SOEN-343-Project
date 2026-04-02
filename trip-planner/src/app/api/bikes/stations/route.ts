@@ -6,8 +6,8 @@
 // the displayed counts without depending on the read-only external feed.
 
 import { NextResponse } from "next/server";
-import { getBixiStationsMerged } from "@/lib/providers/gbfs";
-import { prisma } from "@/lib/prisma";
+import { getBixiStationsMerged } from "@/lib/technical-services/providers/gbfs";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

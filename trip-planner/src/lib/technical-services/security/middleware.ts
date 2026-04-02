@@ -6,7 +6,7 @@
 // exactly like classic decorator layering.
 
 import { NextResponse } from "next/server";
-import { getSessionUser, SessionUser } from "@/lib/auth";
+import { getSessionUser, SessionUser } from "@/lib/technical-services/security/session";
 
 type RouteHandler = (req: Request, user: SessionUser) => Promise<Response>;
 type WrappedHandler = (req: Request) => Promise<Response>;

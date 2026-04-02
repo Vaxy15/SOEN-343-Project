@@ -1,13 +1,13 @@
 // src/app/api/account/stats/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
+import { requireUser } from "@/lib/technical-services/security/session";
 import {
   bikeSavingsGrams,
   transitSavingsGrams,
   formatCO2,
   carbonEquivalents,
-} from "@/lib/carbon";
+} from "@/lib/technical-services/services/carbon";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

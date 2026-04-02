@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import GoogleLoader from "../planner/GoogleLoader";
 import { useRouter } from "next/navigation";
-import type { GbfsStation } from "@/lib/providers/gbfs";
+import type { GbfsStation } from "@/lib/technical-services/providers/gbfs";
 
 type Row = GbfsStation;
 type BikeStatus = {

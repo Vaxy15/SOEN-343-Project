@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
 
 export async function GET(req: Request) {
   const cookie = req.headers.get("cookie") ?? "";

@@ -1,6 +1,6 @@
 // SOEN-343-Project\trip-planner\src\app\api\trips\plan\route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

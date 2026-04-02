@@ -1,5 +1,5 @@
 // src/app/admin/page.tsx
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/technical-services/security/session";
 import AdminClient from "./AdminClient";
 
 export default async function AdminPage() {

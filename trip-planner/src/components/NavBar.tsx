@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser } from "@/lib/technical-services/security/session";
 import UserMenu from "@/components/UserMenu";
 
 export default async function NavBar() {

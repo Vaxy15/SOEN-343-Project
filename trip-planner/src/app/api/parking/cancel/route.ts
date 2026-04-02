@@ -3,8 +3,8 @@
 // Cancel is command.undo() — symmetric with execute() in the reserve flow.
 
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
-import { ParkingReservationCommand } from "@/lib/commands/ReservationCommand";
+import { getSessionUser } from "@/lib/technical-services/security/session";
+import { ParkingReservationCommand } from "@/lib/technical-services/commands/ReservationCommand";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

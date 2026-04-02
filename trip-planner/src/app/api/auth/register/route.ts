@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
 import bcrypt from "bcryptjs";
 
 type Body = {

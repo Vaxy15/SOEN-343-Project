@@ -5,9 +5,9 @@
 // and contains only business logic — no auth boilerplate.
 
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { withAdmin } from "@/lib/withAuth";
-import { SessionUser } from "@/lib/auth";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
+import { withAdmin } from "@/lib/technical-services/security/middleware";
+import { SessionUser } from "@/lib/technical-services/security/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

@@ -1,6 +1,6 @@
 // SOEN-343-Project\trip-planner\src\app\api\auth\login\route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
 import bcrypt from "bcryptjs";
 
 type Body = { email: string; password: string };

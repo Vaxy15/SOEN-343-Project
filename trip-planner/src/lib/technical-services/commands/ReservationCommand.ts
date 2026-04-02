@@ -9,8 +9,8 @@
 // availability is always managed via Vehicle.available. BikeStock is no longer
 // used as a fallback.
 
-import { prisma } from "@/lib/prisma";
-import { OrderFactory } from "@/lib/orders";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
+import { OrderFactory } from "@/lib/technical-services/factories/OrderFactory";
 
 export interface ReservationCommand {
   execute(): Promise<{ ok: boolean; error?: string; orderId?: string }>;

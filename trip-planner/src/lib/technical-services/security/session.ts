@@ -1,6 +1,6 @@
 // SOEN-343-Project\trip-planner\src\lib\auth.ts
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/technical-services/persistence/prisma";
 
 export type SessionUser = {
   id: string;

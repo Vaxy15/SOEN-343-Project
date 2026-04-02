@@ -6,11 +6,11 @@
 // To cancel a reservation, you would call command.undo().
 
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/technical-services/security/session";
 import {
   BikeReservationCommand,
   ParkingReservationCommand,
-} from "@/lib/commands/ReservationCommand";
+} from "@/lib/technical-services/commands/ReservationCommand";
 
 type BikeBody = {
   type: "bike";
