@@ -1,0 +1,121 @@
+// SOEN-343-Project\trip-planner\prisma\schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TripPlan {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  origin      String
+  destination String
+  mode        String
+  resultJson  String
+}
+
+model MockOrder {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        String
+  priceCents  Int
+  status      String
+  detailsJson String
+}
+
+model BixiSnapshot {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  stationId      String
+  bikesAvailable Int
+  docksAvailable Int
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  name               String
+  passwordHash       String
+  role               Role                @default(USER)
+  status             AccountStatus       @default(APPROVED)
+
+  sessions           Session[]
+  reservation        BikeReservation?
+  parkingReservation ParkingReservation?
+  orders             MockOrder[]
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model BikeReservation {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stationId   String
+  stationName String
+}
+
+model ParkingReservation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parkingId String
+  name      String
+  address   String
+  lat       Float
+  lon       Float
+}
+
+model BikeStock {
+  id        String   @id
+  available Int
+  updatedAt DateTime @updatedAt
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("BIKE")
+  provider    String?
+  stationId   String?
+  stationName String?
+  lat         Float?
+  lon         Float?
+  available   Int      @default(0)
+  status      String   @default("ACTIVE") // ACTIVE, MAINTENANCE, INACTIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
