@@ -4,6 +4,10 @@
 // with execute() and undo() methods. This pairs the reserve and cancel operations
 // that conceptually belong together, and makes it easy to add audit logging,
 // queuing, or undo history in the future.
+//
+// Since all stations (BIXI and custom) are now seeded into the Vehicle table,
+// availability is always managed via Vehicle.available. BikeStock is no longer
+// used as a fallback.
 
 import { prisma } from "@/lib/prisma";
 import { OrderFactory } from "@/lib/orders";
@@ -29,21 +33,34 @@ export class BikeReservationCommand implements ReservationCommand {
   async execute() {
     try {
       const result = await prisma.$transaction(async (tx) => {
-        // Ensure stock row exists
-        const existingStock = await tx.bikeStock.findUnique({ where: { id: "default" } });
-        if (!existingStock) {
-          await tx.bikeStock.create({ data: { id: "default", available: 20 } });
-        }
-
+        // Block duplicate reservations
         const existing = await tx.bikeReservation.findUnique({
           where: { userId: this.opts.userId },
         });
         if (existing) throw new Error("You already have a bike reserved.");
 
-        const stock = await tx.bikeStock.findUnique({ where: { id: "default" } });
-        if (!stock || stock.available <= 0) {
-          throw new Error("No reservable bikes available right now.");
+        // All stations are in Vehicle — find by stationId
+        const vehicle = await tx.vehicle.findFirst({
+          where: {
+            type: "BIKE",
+            status: "ACTIVE",
+            stationId: this.opts.stationId,
+          },
+          orderBy: { createdAt: "asc" },
+        });
+
+        if (!vehicle) {
+          throw new Error("Station not found.");
         }
+
+        if ((vehicle.available ?? 0) <= 0) {
+          throw new Error("No bikes available at this station.");
+        }
+
+        await tx.vehicle.update({
+          where: { id: vehicle.id },
+          data: { available: { decrement: 1 } },
+        });
 
         const reservation = await tx.bikeReservation.create({
           data: {
@@ -53,12 +70,6 @@ export class BikeReservationCommand implements ReservationCommand {
           },
         });
 
-        await tx.bikeStock.update({
-          where: { id: "default" },
-          data: { available: { decrement: 1 } },
-        });
-
-        // Use OrderFactory to build the order payload
         const orderData = OrderFactory.createBikeOrder(this.opts.userId, {
           reservationId: reservation.id,
           stationId: this.opts.stationId,
@@ -87,10 +98,23 @@ export class BikeReservationCommand implements ReservationCommand {
         });
         if (!existing) throw new Error("No reservation found.");
 
-        await tx.bikeReservation.delete({ where: { userId: this.opts.userId } });
-        await tx.bikeStock.update({
-          where: { id: "default" },
-          data: { available: { increment: 1 } },
+        const vehicle = await tx.vehicle.findFirst({
+          where: {
+            type: "BIKE",
+            stationId: existing.stationId,
+          },
+          orderBy: { createdAt: "asc" },
+        });
+
+        if (vehicle) {
+          await tx.vehicle.update({
+            where: { id: vehicle.id },
+            data: { available: { increment: 1 } },
+          });
+        }
+
+        await tx.bikeReservation.delete({
+          where: { userId: this.opts.userId },
         });
       });
 
@@ -123,7 +147,8 @@ export class ParkingReservationCommand implements ReservationCommand {
         const existing = await tx.parkingReservation.findUnique({
           where: { userId: this.opts.userId },
         });
-        if (existing) throw new Error("You already have an active parking reservation.");
+        if (existing)
+          throw new Error("You already have an active parking reservation.");
 
         const reservation = await tx.parkingReservation.create({
           data: {
@@ -136,7 +161,6 @@ export class ParkingReservationCommand implements ReservationCommand {
           },
         });
 
-        // Use OrderFactory to build the order payload
         const orderData = OrderFactory.createParkingOrder(this.opts.userId, {
           reservationId: reservation.id,
           parkingId: this.opts.parkingId,
@@ -167,9 +191,12 @@ export class ParkingReservationCommand implements ReservationCommand {
         select: { id: true },
       });
 
-      if (!existing) return { ok: true }; // nothing to undo
+      if (!existing) return { ok: true };
 
-      await prisma.parkingReservation.delete({ where: { userId: this.opts.userId } });
+      await prisma.parkingReservation.delete({
+        where: { userId: this.opts.userId },
+      });
+
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message ?? "Cancel failed." };

@@ -1,21 +1,14 @@
+// SOEN-343-Project\trip-planner\tailwind.config.ts
 import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./src/app/**/*.{ts,tsx}",
-    "./src/components/**/*.{ts,tsx}",
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {
-      colors: {
-        brand: {
-          blue: "#1E73BE",   // Adjust slightly if needed
-          green: "#3E8E2F",
-          light: "#F8FAFC",
-          dark: "#1F2937",
-        },
-      },
-    },
+    extend: {},
   },
   plugins: [],
 };

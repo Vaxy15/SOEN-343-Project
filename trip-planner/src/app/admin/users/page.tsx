@@ -1,15 +1,8 @@
-// SOEN-343-Project\trip-planner\src\app\admin\users\page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 
-type PendingUser = {
-  id: string;
-  email: string;
-  role: "ADMIN";
-  status: "PENDING";
-  createdAt: string;
-};
+type PendingUser = { id: string; email: string; role: "ADMIN"; status: "PENDING"; createdAt: string };
 
 export default function AdminUsersPage() {
   const [pending, setPending] = useState<PendingUser[]>([]);
@@ -20,15 +13,10 @@ export default function AdminUsersPage() {
   async function load() {
     setLoading(true);
     setErr(null);
-
     try {
-      const res = await fetch(`/api/admin/pending-admins?t=${Date.now()}`, {
-        cache: "no-store",
-      });
-
+      const res = await fetch(`/api/admin/pending-admins?t=${Date.now()}`, { cache: "no-store" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to load pending admins.");
-
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load.");
       setPending(json?.users ?? []);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load.");
@@ -40,7 +28,6 @@ export default function AdminUsersPage() {
   async function approve(userId: string) {
     setBusyId(userId);
     setErr(null);
-
     try {
       const res = await fetch(`/api/admin/approve-admin?t=${Date.now()}`, {
         method: "POST",
@@ -48,11 +35,8 @@ export default function AdminUsersPage() {
         cache: "no-store",
         body: JSON.stringify({ userId }),
       });
-
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to approve admin.");
-
-      // remove from list immediately
+      if (!res.ok) throw new Error(json?.error ?? "Failed to approve.");
       setPending((prev) => prev.filter((u) => u.id !== userId));
     } catch (e: any) {
       setErr(e?.message ?? "Failed to approve.");
@@ -61,108 +45,74 @@ export default function AdminUsersPage() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900">
-      <div className="max-w-4xl mx-auto space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Admin Approvals</h1>
-            <div className="text-sm text-zinc-600">
-              Approve pending admin accounts.
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <a className="underline text-sm text-zinc-600" href="/admin">
-              Admin
-            </a>
-            <a className="underline text-sm text-zinc-600" href="/">
-              Home
-            </a>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Admin Approvals</h1>
+          <p className="text-sm text-slate-500 mt-1">Approve or reject pending admin accounts</p>
         </div>
-
-        <div className="rounded-lg border bg-white p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-zinc-600">
-              Pending admins: <span className="font-medium text-zinc-900">{pending.length}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={load}
-              className="px-3 py-1.5 rounded border bg-white hover:bg-zinc-100 text-sm text-zinc-900"
-              disabled={loading}
-            >
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-
-          {err ? (
-            <div className="text-sm text-red-700 border rounded p-3 bg-red-50">
-              {err}
-              <div className="text-xs text-zinc-600 mt-1">
-                If you see <span className="font-mono">UNAUTHORIZED</span> or{" "}
-                <span className="font-mono">FORBIDDEN</span>, you are not logged in as an approved admin.
-              </div>
-            </div>
-          ) : null}
-
-          {loading ? (
-            <div className="text-sm text-zinc-600">Loading…</div>
-          ) : pending.length === 0 ? (
-            <div className="text-sm text-zinc-600">No pending admins.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-zinc-600">
-                  <tr className="border-b">
-                    <th className="py-2 pr-3">Email</th>
-                    <th className="py-2 pr-3">Requested</th>
-                    <th className="py-2 pr-0 text-right">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {pending.map((u) => (
-                    <tr key={u.id} className="border-b last:border-b-0">
-                      <td className="py-2 pr-3">
-                        <div className="font-medium text-zinc-900">{u.email}</div>
-                        <div className="text-xs text-zinc-500">
-                          Role: {u.role} · Status: {u.status}
-                        </div>
-                      </td>
-
-                      <td className="py-2 pr-3 text-zinc-700">
-                        {new Date(u.createdAt).toLocaleString()}
-                      </td>
-
-                      <td className="py-2 pr-0 text-right">
-                        <button
-                          type="button"
-                          onClick={() => approve(u.id)}
-                          disabled={busyId === u.id}
-                          className="px-3 py-1.5 rounded border bg-black text-white disabled:opacity-50"
-                        >
-                          {busyId === u.id ? "Approving..." : "Approve"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="mt-3 text-xs text-zinc-500">
-                Tip: after approving, the user can log in normally.
-              </div>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <a href="/admin" className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-medium text-slate-600 transition">← Dashboard</a>
+          <button onClick={load} disabled={loading}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-medium text-slate-600 transition disabled:opacity-50">
+            {loading ? "Refreshing…" : "↻ Refresh"}
+          </button>
         </div>
       </div>
-    </main>
+
+      {err && (
+        <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 text-sm text-red-600">
+          {err}
+          {err.includes("UNAUTHORIZED") || err.includes("Forbidden") ? (
+            <div className="text-xs text-slate-500 mt-1">You must be an approved admin to view this page.</div>
+          ) : null}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-700">
+            Pending approvals
+            <span className="ml-2 px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 text-xs font-bold">{pending.length}</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="p-8 text-center text-sm text-slate-400">Loading…</div>
+        ) : pending.length === 0 ? (
+          <div className="p-8 text-center space-y-2">
+            <div className="text-2xl">✅</div>
+            <div className="text-sm font-semibold text-slate-700">All clear</div>
+            <div className="text-sm text-slate-400">No pending admin accounts</div>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {pending.map((u) => (
+              <div key={u.id} className="flex items-center justify-between px-5 py-4 gap-4">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-800 text-sm truncate">{u.email}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    Requested {new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {" · "}
+                    <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 font-medium">PENDING</span>
+                  </div>
+                </div>
+                <button onClick={() => approve(u.id)} disabled={busyId === u.id}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold shadow-sm transition disabled:opacity-50 shrink-0">
+                  {busyId === u.id ? "Approving…" : "Approve"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
+          Approved admins can log in immediately after approval.
+        </div>
+      </div>
+    </div>
   );
 }

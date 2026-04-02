@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { BikeReservationCommand } from "@/lib/commands/ReservationCommand";
+import { ParkingReservationCommand } from "@/lib/commands/ReservationCommand";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -9,10 +9,12 @@ export async function POST() {
   try {
     const user = await requireUser();
 
-    const command = new BikeReservationCommand({
+    const command = new ParkingReservationCommand({
       userId: user.id,
-      stationId: "",
-      stationName: "",
+      parkingId: "",
+      name: "",
+      lat: 0,
+      lon: 0,
     });
 
     const result = await command.undo();
