@@ -13,7 +13,7 @@ CityCircuit is a smart urban mobility management system for Montreal. It lets us
 | Anthony Mastromonaco | 40077240 |
 | Dylan Moos           | 40296816 |
 | Mahdi Rahman         | 40282926 |
-| Anthony Vaccaro      | 40214876 |
+| Anthony Vaccaro (project lead)     | 40214876 | 
 
 ## Features
 
